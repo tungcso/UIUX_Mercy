@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 
 type Bar = {
   p: number;
@@ -116,6 +116,9 @@ export default function StatChart() {
     );
   });
 
+  const [selectedBar, setSelectedBar] = useState<Bar | null>(null);
+
+
   return (
     <div className="bg-white rounded-2xl shadow-lg p-4 h-full">
       <div className="flex items-center justify-between mb-4">
@@ -162,13 +165,65 @@ export default function StatChart() {
             fill="#f8fafc"
           />
 
-          {barElements}
+          {barElements.map((el, idx) =>
+            // clone element and add onClick to the rect inside via index
+            React.cloneElement(el as any, {
+              key: idx,
+              onClick: () => setSelectedBar(barsForRender[idx]),
+            })
+          )}
         </svg>
 
         <div className="mt-3 flex items-center text-sm text-slate-400">
           <div className="pl-2">Đơn vị: Triệu VND</div>
         </div>
       </div>
+
+      {selectedBar ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="Đóng chi tiết doanh thu"
+            className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
+            onClick={() => setSelectedBar(null)}
+          />
+
+          <div className="relative w-full max-w-md animate-alert-modal rounded-[1.75rem] border border-slate-200 bg-white p-6 font-sans shadow-[0_24px_70px_rgba(15,23,42,0.22)]">
+            <button
+              type="button"
+              aria-label="Đóng chi tiết doanh thu"
+              onClick={() => setSelectedBar(null)}
+              className="absolute right-4 top-4 rounded-full p-1 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600"
+            >
+              ×
+            </button>
+
+            <h3 className="text-sm font-semibold text-slate-700">Chi tiết khoản thu</h3>
+            <div className="mt-1 text-xs text-slate-400">{selectedBar.label} — Tổng: {selectedBar.value} triệu</div>
+
+            <div className="mt-4 space-y-3 max-h-[300px] overflow-auto">
+              {[
+                { item: "Khám tư vấn", amt: Math.round(selectedBar.value * 0.35), date: "01/05/2026" },
+                { item: "Dịch vụ cận lâm sàng", amt: Math.round(selectedBar.value * 0.25), date: "05/05/2026" },
+                { item: "Thuốc & vật tư", amt: Math.round(selectedBar.value * 0.2), date: "10/05/2026" },
+                { item: "Tiền khám chuyên khoa", amt: Math.round(selectedBar.value * 0.2), date: "12/05/2026" },
+              ].map((r, i) => (
+                <div key={i} className="flex items-start justify-between rounded-lg border border-slate-100 p-3">
+                  <div>
+                    <div className="font-medium text-slate-800">{r.item}</div>
+                    <div className="text-xs text-slate-400 mt-1">{r.date}</div>
+                  </div>
+                  <div className="font-semibold text-slate-700">{r.amt} triệu</div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 text-right">
+              <button onClick={() => setSelectedBar(null)} className="rounded-full bg-blue-600 px-4 py-2 text-white text-sm">ĐÓNG</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
