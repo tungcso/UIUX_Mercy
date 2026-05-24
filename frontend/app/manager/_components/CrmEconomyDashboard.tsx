@@ -141,7 +141,7 @@ function generateDashboardConfig(
   pMarginPrev: number,
   pOlder: number,
   iOlder: number,
-  pMarginOlder: number
+  pMarginOlder: number,
 ): DashboardConfig {
   const revCurr = pCurr * iCurr;
   const revPrev = pPrev * iPrev;
@@ -172,8 +172,8 @@ function generateDashboardConfig(
       endVal * 0.88,
       endVal * 0.94,
       endVal * 0.91,
-      endVal
-    ].map(v => Number(v.toFixed(1)));
+      endVal,
+    ].map((v) => Number(v.toFixed(1)));
   };
 
   return {
@@ -216,9 +216,21 @@ function generateDashboardConfig(
         icon: <DollarSign className="h-5 w-5 text-emerald-700" />,
         bg: "bg-emerald-50",
         sparkStroke: "#10b981",
-        current: { value: Number(revCurr.toFixed(1)), delta: Number(revDeltaCurr.toFixed(1)), spark: sparkScale(revCurr) },
-        previous: { value: Number(revPrev.toFixed(1)), delta: Number(revDeltaPrev.toFixed(1)), spark: sparkScale(revPrev) },
-        twoPeriodsAgo: { value: Number(revOlder.toFixed(1)), delta: 8.5, spark: sparkScale(revOlder) },
+        current: {
+          value: Number(revCurr.toFixed(1)),
+          delta: Number(revDeltaCurr.toFixed(1)),
+          spark: sparkScale(revCurr),
+        },
+        previous: {
+          value: Number(revPrev.toFixed(1)),
+          delta: Number(revDeltaPrev.toFixed(1)),
+          spark: sparkScale(revPrev),
+        },
+        twoPeriodsAgo: {
+          value: Number(revOlder.toFixed(1)),
+          delta: 8.5,
+          spark: sparkScale(revOlder),
+        },
       },
       {
         id: "profit",
@@ -227,9 +239,21 @@ function generateDashboardConfig(
         icon: <TrendingUp className="h-5 w-5 text-blue-600" />,
         bg: "bg-blue-50",
         sparkStroke: "#2563eb",
-        current: { value: Number(profCurr.toFixed(1)), delta: Number(profDeltaCurr.toFixed(1)), spark: sparkScale(profCurr) },
-        previous: { value: Number(profPrev.toFixed(1)), delta: Number(profDeltaPrev.toFixed(1)), spark: sparkScale(profPrev) },
-        twoPeriodsAgo: { value: Number(profOlder.toFixed(1)), delta: 9.8, spark: sparkScale(profOlder) },
+        current: {
+          value: Number(profCurr.toFixed(1)),
+          delta: Number(profDeltaCurr.toFixed(1)),
+          spark: sparkScale(profCurr),
+        },
+        previous: {
+          value: Number(profPrev.toFixed(1)),
+          delta: Number(profDeltaPrev.toFixed(1)),
+          spark: sparkScale(profPrev),
+        },
+        twoPeriodsAgo: {
+          value: Number(profOlder.toFixed(1)),
+          delta: 9.8,
+          spark: sparkScale(profOlder),
+        },
       },
       {
         id: "patients",
@@ -238,8 +262,16 @@ function generateDashboardConfig(
         icon: <Users className="h-5 w-5 text-sky-600" />,
         bg: "bg-sky-50",
         sparkStroke: "#0284c7",
-        current: { value: pCurr, delta: Number(patDeltaCurr.toFixed(1)), spark: sparkScale(pCurr) },
-        previous: { value: pPrev, delta: Number(patDeltaPrev.toFixed(1)), spark: sparkScale(pPrev) },
+        current: {
+          value: pCurr,
+          delta: Number(patDeltaCurr.toFixed(1)),
+          spark: sparkScale(pCurr),
+        },
+        previous: {
+          value: pPrev,
+          delta: Number(patDeltaPrev.toFixed(1)),
+          spark: sparkScale(pPrev),
+        },
         twoPeriodsAgo: { value: pOlder, delta: 6.2, spark: sparkScale(pOlder) },
       },
       {
@@ -249,9 +281,21 @@ function generateDashboardConfig(
         icon: <FileText className="h-5 w-5 text-violet-600" />,
         bg: "bg-violet-50",
         sparkStroke: "#7c3aed",
-        current: { value: Number(iCurr.toFixed(2)), delta: Number(invDeltaCurr.toFixed(1)), spark: sparkScale(iCurr) },
-        previous: { value: Number(iPrev.toFixed(2)), delta: Number(invDeltaPrev.toFixed(1)), spark: sparkScale(iPrev) },
-        twoPeriodsAgo: { value: Number(iOlder.toFixed(2)), delta: 3.4, spark: sparkScale(iOlder) },
+        current: {
+          value: Number(iCurr.toFixed(2)),
+          delta: Number(invDeltaCurr.toFixed(1)),
+          spark: sparkScale(iCurr),
+        },
+        previous: {
+          value: Number(iPrev.toFixed(2)),
+          delta: Number(invDeltaPrev.toFixed(1)),
+          spark: sparkScale(iPrev),
+        },
+        twoPeriodsAgo: {
+          value: Number(iOlder.toFixed(2)),
+          delta: 3.4,
+          spark: sparkScale(iOlder),
+        },
       },
     ],
     topServices: {
@@ -273,18 +317,36 @@ function generateDashboardConfig(
     },
     doctors: {
       current: [
-        { name: "TS.BS. Hoàng Anh", value: Number((revCurr * 0.45).toFixed(1)) },
-        { name: "ThS.BS. Lan Phương", value: Number((revCurr * 0.35).toFixed(1)) },
-        { name: "BS. Minh Tú", value: Number((revCurr * 0.20).toFixed(1)) },
+        {
+          name: "TS.BS. Hoàng Anh",
+          value: Number((revCurr * 0.45).toFixed(1)),
+        },
+        {
+          name: "ThS.BS. Lan Phương",
+          value: Number((revCurr * 0.35).toFixed(1)),
+        },
+        { name: "BS. Minh Tú", value: Number((revCurr * 0.2).toFixed(1)) },
       ],
       previous: [
-        { name: "TS.BS. Hoàng Anh", value: Number((revPrev * 0.44).toFixed(1)) },
-        { name: "ThS.BS. Lan Phương", value: Number((revPrev * 0.36).toFixed(1)) },
-        { name: "BS. Minh Tú", value: Number((revPrev * 0.20).toFixed(1)) },
+        {
+          name: "TS.BS. Hoàng Anh",
+          value: Number((revPrev * 0.44).toFixed(1)),
+        },
+        {
+          name: "ThS.BS. Lan Phương",
+          value: Number((revPrev * 0.36).toFixed(1)),
+        },
+        { name: "BS. Minh Tú", value: Number((revPrev * 0.2).toFixed(1)) },
       ],
       twoPeriodsAgo: [
-        { name: "TS.BS. Hoàng Anh", value: Number((revOlder * 0.42).toFixed(1)) },
-        { name: "ThS.BS. Lan Phương", value: Number((revOlder * 0.36).toFixed(1)) },
+        {
+          name: "TS.BS. Hoàng Anh",
+          value: Number((revOlder * 0.42).toFixed(1)),
+        },
+        {
+          name: "ThS.BS. Lan Phương",
+          value: Number((revOlder * 0.36).toFixed(1)),
+        },
         { name: "BS. Minh Tú", value: Number((revOlder * 0.22).toFixed(1)) },
       ],
     },
@@ -293,24 +355,48 @@ function generateDashboardConfig(
 
 const dashboardByTimeframe: Record<Timeframe, DashboardConfig> = {
   "7d": generateDashboardConfig(
-    180, 1.38, 0.2200, // Current
-    166, 1.31, 0.2120, // Previous
-    155, 1.26, 0.2040  // Two Periods Ago
+    180,
+    1.38,
+    0.22, // Current
+    166,
+    1.31,
+    0.212, // Previous
+    155,
+    1.26,
+    0.204, // Two Periods Ago
   ),
   month: generateDashboardConfig(
-    842, 1.48, 0.2568, // Current
-    778, 1.405, 0.2489, // Previous
-    728, 1.35, 0.2410  // Two Periods Ago
+    842,
+    1.48,
+    0.2568, // Current
+    778,
+    1.405,
+    0.2489, // Previous
+    728,
+    1.35,
+    0.241, // Two Periods Ago
   ),
   quarter: generateDashboardConfig(
-    2580, 1.52, 0.2615, // Current
-    2382, 1.442, 0.2532, // Previous
-    2200, 1.385, 0.2450  // Two Periods Ago
+    2580,
+    1.52,
+    0.2615, // Current
+    2382,
+    1.442,
+    0.2532, // Previous
+    2200,
+    1.385,
+    0.245, // Two Periods Ago
   ),
   year: generateDashboardConfig(
-    10520, 1.58, 0.2683, // Current
-    9712, 1.498, 0.2596, // Previous
-    8968, 1.44, 0.2510  // Two Periods Ago
+    10520,
+    1.58,
+    0.2683, // Current
+    9712,
+    1.498,
+    0.2596, // Previous
+    8968,
+    1.44,
+    0.251, // Two Periods Ago
   ),
 };
 
@@ -761,17 +847,16 @@ export default function CrmEconomyDashboard() {
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-[1.65rem] border border-slate-200 bg-white px-6 py-6 shadow-[0_18px_45px_rgba(15,23,42,0.03)]">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-blue-600">Doanh thu cơ cấu</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-blue-600">
+              Doanh thu cơ cấu
+            </span>
             <h3 className="text-sm font-bold text-slate-800 mt-0.5">
               Top dịch vụ đóng góp doanh số chính
             </h3>
           </div>
           <div className="mt-6 space-y-4">
             {topServices.map((service) => (
-              <div
-                key={service.label}
-                className="space-y-2"
-              >
+              <div key={service.label} className="space-y-2">
                 <div className="flex items-center justify-between text-xs font-semibold text-slate-700">
                   <span>{service.label}</span>
                   <span>{service.pct}%</span>
@@ -789,7 +874,9 @@ export default function CrmEconomyDashboard() {
 
         <div className="rounded-[1.65rem] border border-slate-200 bg-white px-6 py-6 shadow-[0_18px_45px_rgba(15,23,42,0.03)]">
           <div>
-            <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-blue-600">Năng suất nhân sự</span>
+            <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-blue-600">
+              Năng suất nhân sự
+            </span>
             <h3 className="text-sm font-bold text-slate-800 mt-0.5">
               Hiệu suất doanh thu đóng góp của Bác Sĩ
             </h3>
@@ -829,11 +916,9 @@ export default function CrmEconomyDashboard() {
 
       {selected ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <button
-            type="button"
-            aria-label="Đóng chi tiết bệnh nhân"
+          <div
+            aria-hidden="true"
             className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
-            onClick={() => setSelected(null)}
           />
           <div className="relative w-full max-w-2xl animate-alert-modal rounded-[1.75rem] border border-slate-200 bg-white p-6 font-sans shadow-[0_24px_70px_rgba(15,23,42,0.22)]">
             <button

@@ -154,18 +154,10 @@ function AppSidebar({
       }
     }
 
-    function handleEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setIsProfileMenuOpen(false);
-      }
-    }
-
     document.addEventListener("mousedown", handleOutsideClick);
-    document.addEventListener("keydown", handleEscape);
 
     return () => {
       document.removeEventListener("mousedown", handleOutsideClick);
-      document.removeEventListener("keydown", handleEscape);
     };
   }, []);
 
@@ -591,11 +583,9 @@ function PatientDetailScreen({
 
             {isDiagnosisPopupOpen ? (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <button
-                  type="button"
-                  aria-label="Đóng popup đề xuất chẩn đoán"
+                <div
+                  aria-hidden="true"
                   className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
-                  onClick={() => setIsDiagnosisPopupOpen(false)}
                 />
 
                 <div className="relative w-full max-w-3xl animate-alert-modal rounded-[1.75rem] border border-slate-200 bg-white p-6 font-sans shadow-[0_24px_70px_rgba(15,23,42,0.22)] lg:p-7">
@@ -852,18 +842,10 @@ export default function DoctorDashboardPage() {
       }
     }
 
-    function handleEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setIsProfileMenuOpen(false);
-      }
-    }
-
     document.addEventListener("mousedown", handleOutsideClick);
-    document.addEventListener("keydown", handleEscape);
 
     return () => {
       document.removeEventListener("mousedown", handleOutsideClick);
-      document.removeEventListener("keydown", handleEscape);
     };
   }, []);
 
@@ -1253,11 +1235,9 @@ export default function DoctorDashboardPage() {
 
             {isLayoutPopupOpen ? (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <button
-                  type="button"
-                  aria-label="Đóng popup tùy chỉnh bố cục"
+                <div
+                  aria-hidden="true"
                   className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
-                  onClick={() => setIsLayoutPopupOpen(false)}
                 />
 
                 <div className="relative w-full max-w-md animate-alert-modal rounded-[1.75rem] border border-slate-200 bg-white p-6 font-sans shadow-[0_24px_70px_rgba(15,23,42,0.22)]">
@@ -1358,11 +1338,9 @@ export default function DoctorDashboardPage() {
 
             {isDiagnosisPopupOpen ? (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <button
-                  type="button"
-                  aria-label="Đóng popup đề xuất chẩn đoán"
+                <div
+                  aria-hidden="true"
                   className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
-                  onClick={() => setIsDiagnosisPopupOpen(false)}
                 />
 
                 <div className="relative w-full max-w-3xl animate-alert-modal rounded-[1.75rem] border border-slate-200 bg-white p-6 font-sans shadow-[0_24px_70px_rgba(15,23,42,0.22)] lg:p-7">
@@ -1566,11 +1544,9 @@ export default function DoctorDashboardPage() {
 
             {isAiErrorPopupOpen ? (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <button
-                  type="button"
-                  aria-label="Đóng popup báo lỗi kịch bản AI"
+                <div
+                  aria-hidden="true"
                   className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
-                  onClick={() => setIsAiErrorPopupOpen(false)}
                 />
 
                 <div className="relative w-full max-w-140 animate-alert-modal rounded-[1.75rem] border border-slate-200 bg-white p-5 font-sans shadow-[0_24px_70px_rgba(15,23,42,0.22)] sm:p-6">
@@ -1651,11 +1627,9 @@ export default function DoctorDashboardPage() {
 
             {isProfilePopupOpen ? (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <button
-                  type="button"
-                  aria-label="Đóng popup hồ sơ cá nhân"
+                <div
+                  aria-hidden="true"
                   className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
-                  onClick={() => setIsProfilePopupOpen(false)}
                 />
 
                 <div className="relative w-full max-w-xl animate-alert-modal rounded-[1.75rem] border border-slate-200 bg-white p-6 font-sans shadow-[0_24px_70px_rgba(15,23,42,0.22)]">
@@ -1752,11 +1726,9 @@ export default function DoctorDashboardPage() {
 
             {isSettingsPopupOpen ? (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <button
-                  type="button"
-                  aria-label="Đóng popup cài đặt"
+                <div
+                  aria-hidden="true"
                   className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
-                  onClick={() => setIsSettingsPopupOpen(false)}
                 />
 
                 <div className="relative w-full max-w-lg animate-alert-modal rounded-[1.75rem] border border-slate-200 bg-white p-6 font-sans shadow-[0_24px_70px_rgba(15,23,42,0.22)]">
@@ -1940,11 +1912,9 @@ export default function DoctorDashboardPage() {
 
             {selectedAppointment && selectedAction === "detail" ? (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <button
-                  type="button"
-                  aria-label="Đóng popup xem chi tiết"
+                <div
+                  aria-hidden="true"
                   className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
-                  onClick={() => setSelectedAppointment(null)}
                 />
 
                 <div className="relative w-full max-w-xl animate-alert-modal rounded-[1.75rem] border border-slate-200 bg-white p-6 font-sans shadow-[0_24px_70px_rgba(15,23,42,0.22)]">
@@ -2036,7 +2006,9 @@ export default function DoctorDashboardPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        router.push(`/doctor/patients?id=${selectedAppointment?.patientId}`);
+                        router.push(
+                          `/doctor/patients?id=${selectedAppointment?.patientId}`,
+                        );
                         setSelectedAppointment(null);
                       }}
                       className="flex-1 rounded-2xl bg-teal-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(13,148,136,0.24)] transition-all hover:-translate-y-0.5 hover:bg-teal-700"
@@ -2057,11 +2029,9 @@ export default function DoctorDashboardPage() {
 
             {selectedAppointment && selectedAction === "emergency" ? (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <button
-                  type="button"
-                  aria-label="Đóng popup khẩn cấp"
+                <div
+                  aria-hidden="true"
                   className="absolute inset-0 bg-slate-950/55 backdrop-blur-[2px]"
-                  onClick={() => setSelectedAppointment(null)}
                 />
 
                 <div className="relative w-full max-w-xl animate-alert-modal rounded-[1.75rem] border border-red-200 bg-white p-6 font-sans shadow-[0_24px_70px_rgba(15,23,42,0.22)]">
@@ -2170,11 +2140,9 @@ export default function DoctorDashboardPage() {
 
             {isQuickAlertOpen ? (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <button
-                  type="button"
-                  aria-label="Đóng popup cảnh báo"
+                <div
+                  aria-hidden="true"
                   className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
-                  onClick={() => setIsQuickAlertOpen(false)}
                 />
 
                 <div className="relative w-full max-w-lg animate-alert-modal rounded-[1.75rem] border border-slate-200 bg-white p-6 font-sans shadow-[0_24px_70px_rgba(15,23,42,0.22)]">
@@ -2256,7 +2224,9 @@ export default function DoctorDashboardPage() {
                     <button
                       type="button"
                       onClick={() => {
-                        router.push(`/doctor/patients?id=${selectedAppointment?.patientId}`);
+                        router.push(
+                          `/doctor/patients?id=${selectedAppointment?.patientId}`,
+                        );
                         setIsQuickAlertOpen(false);
                       }}
                       className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"

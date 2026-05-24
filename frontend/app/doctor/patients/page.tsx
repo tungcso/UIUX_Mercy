@@ -52,21 +52,13 @@ const patientsData: Record<string, Patient> = {
     summary: `Bệnh nhân Lê Thị Mai có tiền sử tăng huyết áp nguyên phát 5 năm nhưng tuân thủ điều trị kém. Hiện tại, bệnh nhân nhập viện với tình trạng đau buốt vùng chẩm sau tai kèm hồi hộp trống ngực dữ dội, ghi nhận chỉ số huyết áp đạt ngưỡng 180/120 mmHg. Với chẩn đoán nghi ngờ cơn tăng huyết áp cấp/theo dõi tai biến mạch máu não nhẹ, cần lập tức kiểm soát huyết áp bằng thuốc hạ áp phù hợp và theo dõi sát các dấu hiệu thần kinh khu trú cùng tri giác để có hướng xử trí kịp thời.`,
     recommendations: [
       ["Cơn tăng huyết áp cấp", "Độ phù hợp: 96%", "emerald"],
-      [
-        "Tai biến mạch máu não nhẹ cần loại trừ",
-        "Độ phù hợp: 84%",
-        "amber",
-      ],
+      ["Tai biến mạch máu não nhẹ cần loại trừ", "Độ phù hợp: 84%", "amber"],
       [
         "Đau đầu do tăng huyết áp kèm rối loạn giao cảm",
         "Độ phù hợp: 76%",
         "slate",
       ],
-      [
-        "Theo dõi hội chứng mạch vành cấp",
-        "Độ phù hợp: 62%",
-        "slate",
-      ],
+      ["Theo dõi hội chứng mạch vành cấp", "Độ phù hợp: 62%", "slate"],
     ],
     aiInsight: `Dựa trên huyết áp 180/120 mmHg, đau vùng chẩm và nhịp tim tăng, hệ thống ưu tiên cơn tăng huyết áp cấp, đồng thời đề nghị loại trừ biến cố thần kinh cấp tính.`,
     actions: [
@@ -98,21 +90,9 @@ const patientsData: Record<string, Patient> = {
     summary: `Bệnh nhân Phạm Hoàng Nam, nam, 56 tuổi, đến khám lâm sàng không có triệu chứng. Chỉ số sinh tồn ổn định: huyết áp 120/80 mmHg, nhịp tim 72 bpm, nhiệt độ 37°C. Khám lâm sàng toàn thân không ghi nhận bất thường. Dự kiến tiến hành khám toàn diện và xét nghiệm cơ bản để loại trừ các bệnh lý tiềm ẩn.`,
     recommendations: [
       ["Đợi xét nghiệm thêm", "Độ phù hợp: 100%", "slate"],
-      [
-        "Khám lâm sàng toàn thân chi tiết",
-        "Độ phù hợp: 95%",
-        "slate",
-      ],
-      [
-        "Tư vấn lối sống lành mạnh",
-        "Độ phù hợp: 88%",
-        "slate",
-      ],
-      [
-        "Tái khám định kỳ 3 tháng",
-        "Độ phù hợp: 85%",
-        "slate",
-      ],
+      ["Khám lâm sàng toàn thân chi tiết", "Độ phù hợp: 95%", "slate"],
+      ["Tư vấn lối sống lành mạnh", "Độ phù hợp: 88%", "slate"],
+      ["Tái khám định kỳ 3 tháng", "Độ phù hợp: 85%", "slate"],
     ],
     aiInsight: `Bệnh nhân không có dấu hiệu bất thường trong khám lâm sàng ban đầu. Cần tiếp tục theo dõi và xét nghiệm thêm để đảm bảo sức khỏe và phát hiện sớm các bệnh lý tiềm ẩn.`,
     actions: [
@@ -144,21 +124,9 @@ const patientsData: Record<string, Patient> = {
     summary: `Bệnh nhân Trần Quốc Bảo, nam, 32 tuổi, nhập viện do tai nạn giao thông với chấn thương vùng ngực. Hiện đang được truyền dịch và giám sát chặt chẽ. Huyết áp ổn định 125/85 mmHg, nhịp tim 85 bpm, mức độ SpO2 98%. Cần theo dõi liên tục các chỉ số sinh tồn và cảnh báo sớm về các dấu hiệu biến chứng.`,
     recommendations: [
       ["Theo dõi sốc mạch máu", "Độ phù hợp: 92%", "emerald"],
-      [
-        "Kiểm tra chứng chấn thương nội tạng",
-        "Độ phù hợp: 88%",
-        "amber",
-      ],
-      [
-        "Cân bằng điện giải và dịch",
-        "Độ phù hợp: 85%",
-        "slate",
-      ],
-      [
-        "Theo dõi nhiễm trùng vết thương",
-        "Độ phù hợp: 82%",
-        "slate",
-      ],
+      ["Kiểm tra chứng chấn thương nội tạng", "Độ phù hợp: 88%", "amber"],
+      ["Cân bằng điện giải và dịch", "Độ phù hợp: 85%", "slate"],
+      ["Theo dõi nhiễm trùng vết thương", "Độ phù hợp: 82%", "slate"],
     ],
     aiInsight: `Bệnh nhân chấn thương mạch máu cần theo dõi liên tục. Các chỉ số sinh tồn hiện tại ổn định nhưng cần cảnh báo sớm về các dấu hiệu biến chứng như sốc hay nhiễm trùng.`,
     actions: [
@@ -188,8 +156,11 @@ export default function PatientDetailPage() {
     useDoctorAvailability();
   const [isDiagnosisPopupOpen, setIsDiagnosisPopupOpen] = useState(false);
   const [isAiErrorPopupOpen, setIsAiErrorPopupOpen] = useState(false);
-  const [symptomsAndDiagnosisByPatient, setSymptomsAndDiagnosisByPatient] = useState<Record<string, string>>({});
-  const [selectedDiagnosis, setSelectedDiagnosis] = useState<string | null>(null);
+  const [symptomsAndDiagnosisByPatient, setSymptomsAndDiagnosisByPatient] =
+    useState<Record<string, string>>({});
+  const [selectedDiagnosis, setSelectedDiagnosis] = useState<string | null>(
+    null,
+  );
 
   // Get patient ID from URL or default to first patient
   const patientId = searchParams.get("id") || "BN-9081";
@@ -225,7 +196,7 @@ export default function PatientDetailPage() {
         <main className="flex-1 overflow-hidden px-4 py-4 sm:px-6 lg:px-7 lg:py-5">
           <div className="relative mx-auto max-w-[1420px]">
             <DoctorOfflineNotice />
-            
+
             {/* Patient Selector Tabs */}
             <div className="mb-5 flex items-center gap-3 overflow-x-auto pb-2">
               {patientList.map((patient) => (
@@ -245,11 +216,18 @@ export default function PatientDetailPage() {
                         : "bg-slate-100 text-slate-500"
                     }`}
                   >
-                    {patient.name.split(" ").map((n) => n[0]).join("")}
+                    {patient.name
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")}
                   </div>
                   <div className="flex flex-col items-start">
-                    <span className="text-sm font-semibold">{patient.name}</span>
-                    <span className={`text-xs ${currentPatient.id === patient.id ? "text-white/70" : "text-slate-400"}`}>
+                    <span className="text-sm font-semibold">
+                      {patient.name}
+                    </span>
+                    <span
+                      className={`text-xs ${currentPatient.id === patient.id ? "text-white/70" : "text-slate-400"}`}
+                    >
                       {patient.age} tuổi • {patient.code}
                     </span>
                   </div>
@@ -290,7 +268,8 @@ export default function PatientDetailPage() {
                       Bệnh nhân: {currentPatient.name}
                     </h2>
                     <p className="mt-2 text-[14px] text-slate-500">
-                      {currentPatient.gender} • {currentPatient.age} Tuổi • Hồ sơ do thông số tự động #{currentPatient.code}
+                      {currentPatient.gender} • {currentPatient.age} Tuổi • Hồ
+                      sơ do thông số tự động #{currentPatient.code}
                       {currentPatient.status && (
                         <span className="ml-2 inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-[12px] font-semibold text-slate-600">
                           <span className="h-2 w-2 rounded-full bg-amber-500" />
@@ -331,10 +310,12 @@ export default function PatientDetailPage() {
 
                 <textarea
                   value={symptomsAndDiagnosisByPatient[currentPatient.id] || ""}
-                  onChange={(e) => setSymptomsAndDiagnosisByPatient(prev => ({
-                    ...prev,
-                    [currentPatient.id]: e.target.value
-                  }))}
+                  onChange={(e) =>
+                    setSymptomsAndDiagnosisByPatient((prev) => ({
+                      ...prev,
+                      [currentPatient.id]: e.target.value,
+                    }))
+                  }
                   placeholder="Gõ triệu chứng lâm sàng hoặc từ khóa (VD: tăng huyết áp, đau đầu vùng chẩm)..."
                   className="mt-3 min-h-28 w-full resize-none rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3.5 text-[14px] leading-6 text-slate-800 outline-none transition focus:border-emerald-300 focus:bg-white focus:ring-4 focus:ring-emerald-100"
                 />
@@ -387,9 +368,7 @@ export default function PatientDetailPage() {
                   <p className="text-[14px] font-semibold text-slate-900">
                     **TÓM TẮT BỆNH ÁN**
                   </p>
-                  <p className="mt-2">
-                    {currentPatient.summary}
-                  </p>
+                  <p className="mt-2">{currentPatient.summary}</p>
                 </div>
 
                 <button
@@ -463,11 +442,9 @@ export default function PatientDetailPage() {
 
             {isDiagnosisPopupOpen ? (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <button
-                  type="button"
-                  aria-label="Đóng popup đề xuất chẩn đoán"
+                <div
+                  aria-hidden="true"
                   className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
-                  onClick={() => setIsDiagnosisPopupOpen(false)}
                 />
 
                 <div className="relative w-full max-w-3xl animate-alert-modal rounded-[1.75rem] border border-slate-200 bg-white p-6 font-sans shadow-[0_24px_70px_rgba(15,23,42,0.22)] lg:p-7">
@@ -507,52 +484,57 @@ export default function PatientDetailPage() {
                               {currentPatient.name}
                             </div>
                             <div className="truncate text-xs text-slate-400">
-                              {currentPatient.gender} • {currentPatient.age} tuổi • {currentPatient.condition}
+                              {currentPatient.gender} • {currentPatient.age}{" "}
+                              tuổi • {currentPatient.condition}
                             </div>
                           </div>
                         </div>
                       </div>
 
                       <div className="space-y-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-                        {currentPatient.recommendations.map(([label, meta, tone], index) => (
-                          <button
-                            key={label}
-                            type="button"
-                            onClick={() => setSelectedDiagnosis(label)}
-                            className={`rounded-2xl border bg-white p-4 shadow-sm transition-all ${
-                              selectedDiagnosis === label
-                                ? "border-emerald-500 ring-2 ring-emerald-200 bg-emerald-50"
-                                : index === 0
-                                ? "border-emerald-200 hover:border-emerald-300"
-                                : "border-slate-100 hover:border-slate-200"
-                            }`}
-                          >
-                            <div className="flex items-start justify-between gap-4 text-left">
-                              <div className="min-w-0 flex-1">
-                                <div className="text-[15px] font-semibold text-slate-800">
-                                  {index + 1}. {label}
+                        {currentPatient.recommendations.map(
+                          ([label, meta, tone], index) => (
+                            <button
+                              key={label}
+                              type="button"
+                              onClick={() => setSelectedDiagnosis(label)}
+                              className={`rounded-2xl border bg-white p-4 shadow-sm transition-all ${
+                                selectedDiagnosis === label
+                                  ? "border-emerald-500 ring-2 ring-emerald-200 bg-emerald-50"
+                                  : index === 0
+                                    ? "border-emerald-200 hover:border-emerald-300"
+                                    : "border-slate-100 hover:border-slate-200"
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-4 text-left">
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-[15px] font-semibold text-slate-800">
+                                    {index + 1}. {label}
+                                  </div>
+                                  <div className="mt-1 text-xs text-slate-400">
+                                    {meta}
+                                  </div>
                                 </div>
-                                <div className="mt-1 text-xs text-slate-400">
-                                  {meta}
-                                </div>
-                              </div>
 
-                              <span
-                                className={`rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.12em] ${
-                                  selectedDiagnosis === label
-                                    ? "bg-emerald-600 text-white"
-                                    : tone === "emerald"
-                                    ? "bg-emerald-100 text-emerald-700"
-                                    : tone === "amber"
-                                    ? "bg-amber-100 text-amber-700"
-                                    : "bg-slate-100 text-slate-600"
-                                }`}
-                              >
-                                {selectedDiagnosis === label ? "✓ Đã chọn" : "Ưu tiên"}
-                              </span>
-                            </div>
-                          </button>
-                        ))}
+                                <span
+                                  className={`rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.12em] ${
+                                    selectedDiagnosis === label
+                                      ? "bg-emerald-600 text-white"
+                                      : tone === "emerald"
+                                        ? "bg-emerald-100 text-emerald-700"
+                                        : tone === "amber"
+                                          ? "bg-amber-100 text-amber-700"
+                                          : "bg-slate-100 text-slate-600"
+                                  }`}
+                                >
+                                  {selectedDiagnosis === label
+                                    ? "✓ Đã chọn"
+                                    : "Ưu tiên"}
+                                </span>
+                              </div>
+                            </button>
+                          ),
+                        )}
                       </div>
                     </div>
 
@@ -578,22 +560,33 @@ export default function PatientDetailPage() {
 
                         <div className="mt-3 space-y-3">
                           {currentPatient.actions.map((action, index) => {
-                            const iconMap: Record<string, React.ComponentType<{className?: string}>> = {
+                            const iconMap: Record<
+                              string,
+                              React.ComponentType<{ className?: string }>
+                            > = {
                               clipboard: ClipboardList,
                               sparkles: Sparkles,
                               activity: Activity,
                             };
-                            const IconComponent = iconMap[action.icon] || Activity;
+                            const IconComponent =
+                              iconMap[action.icon] || Activity;
                             const bgColorMap: Record<string, string> = {
                               clipboard: "bg-emerald-100 text-emerald-700",
                               sparkles: "bg-cyan-100 text-cyan-700",
                               activity: "bg-emerald-100 text-emerald-700",
                             };
-                            const bgColor = bgColorMap[action.icon] || "bg-emerald-100 text-emerald-700";
+                            const bgColor =
+                              bgColorMap[action.icon] ||
+                              "bg-emerald-100 text-emerald-700";
 
                             return (
-                              <div key={index} className="flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-3">
-                                <div className={`flex h-8 w-8 items-center justify-center rounded-full ${bgColor}`}>
+                              <div
+                                key={index}
+                                className="flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-3"
+                              >
+                                <div
+                                  className={`flex h-8 w-8 items-center justify-center rounded-full ${bgColor}`}
+                                >
                                   <IconComponent className="h-4 w-4" />
                                 </div>
                                 <div className="min-w-0 flex-1">
@@ -634,9 +627,12 @@ export default function PatientDetailPage() {
                       type="button"
                       onClick={() => {
                         if (selectedDiagnosis) {
-                          setSymptomsAndDiagnosisByPatient(prev => ({
+                          setSymptomsAndDiagnosisByPatient((prev) => ({
                             ...prev,
-                            [currentPatient.id]: (prev[currentPatient.id] || "") + (prev[currentPatient.id] ? "\n" : "") + selectedDiagnosis
+                            [currentPatient.id]:
+                              (prev[currentPatient.id] || "") +
+                              (prev[currentPatient.id] ? "\n" : "") +
+                              selectedDiagnosis,
                           }));
                           setSelectedDiagnosis(null);
                           setIsDiagnosisPopupOpen(false);

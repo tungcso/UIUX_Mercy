@@ -194,11 +194,9 @@ export default function LoginPage() {
 
       {isForgotPasswordOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <button
-            type="button"
-            aria-label="Đóng popup khôi phục mật khẩu"
+          <div
+            aria-hidden="true"
             className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
-            onClick={() => setIsForgotPasswordOpen(false)}
           />
 
           <div className="relative w-full max-w-md animate-login-pop rounded-[1.75rem] border border-white/40 bg-white/95 p-8 shadow-[0_24px_70px_rgba(2,6,23,0.35)] backdrop-blur-md sm:p-10">
@@ -256,11 +254,9 @@ export default function LoginPage() {
 
       {isRegisterOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <button
-            type="button"
-            aria-label="Đóng popup đăng ký"
+          <div
+            aria-hidden="true"
             className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
-            onClick={() => setIsRegisterOpen(false)}
           />
 
           <div className="relative w-full max-w-md animate-login-pop rounded-[1.75rem] border border-white/40 bg-white/95 p-8 shadow-[0_24px_70px_rgba(2,6,23,0.35)] backdrop-blur-md sm:p-10">
@@ -363,11 +359,9 @@ export default function LoginPage() {
 
       {isRoleSelectionOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <button
-            type="button"
-            aria-label="Đóng popup chọn vai trò"
+          <div
+            aria-hidden="true"
             className="absolute inset-0 bg-slate-950/70 backdrop-blur-sm"
-            onClick={() => setIsRoleSelectionOpen(false)}
           />
 
           <div className="relative w-full max-w-md animate-login-pop rounded-[1.75rem] border border-white/40 bg-white/95 p-8 shadow-[0_24px_70px_rgba(2,6,23,0.35)] backdrop-blur-md sm:p-10">

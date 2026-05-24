@@ -294,10 +294,7 @@ export default function PrescriptionShell() {
       </div>
 
       {isAddPrescriptionOpen ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4 py-6 backdrop-blur-sm"
-          onClick={() => setIsAddPrescriptionOpen(false)}
-        >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-4 py-6 backdrop-blur-sm">
           <div
             className="w-full max-w-xl overflow-hidden rounded-[1.75rem] border border-white/70 bg-white shadow-[0_30px_90px_rgba(15,23,42,0.28)]"
             onClick={(event) => event.stopPropagation()}
@@ -399,10 +396,7 @@ export default function PrescriptionShell() {
       ) : null}
 
       {isExportPopupOpen ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-6 backdrop-blur-sm"
-          onClick={() => setIsExportPopupOpen(false)}
-        >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-6 backdrop-blur-sm">
           <div
             className="w-full max-w-2xl overflow-hidden rounded-[2rem] border border-white/70 bg-gradient-to-br from-white via-emerald-50/80 to-teal-50 shadow-[0_30px_90px_rgba(15,23,42,0.28)]"
             onClick={(event) => event.stopPropagation()}

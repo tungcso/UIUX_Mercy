@@ -19,7 +19,15 @@ export default function ChatShell({ patients = [] }: { patients?: Patient[] }) {
   );
 
   // Messages for each patient
-  const messagesByPatient: Record<string, Array<{ id: string; from: "doctor" | "patient"; text: string; time?: string }>> = {
+  const messagesByPatient: Record<
+    string,
+    Array<{
+      id: string;
+      from: "doctor" | "patient";
+      text: string;
+      time?: string;
+    }>
+  > = {
     "1": [
       {
         id: "1",
@@ -76,11 +84,15 @@ export default function ChatShell({ patients = [] }: { patients?: Patient[] }) {
     ],
   };
 
-  const [messages, setMessages] = useState(() => messagesByPatient[selected] ?? []);
+  const [messages, setMessages] = useState(
+    () => messagesByPatient[selected] ?? [],
+  );
 
   const [messageInput, setMessageInput] = useState("");
   const [aiOpen, setAiOpen] = useState(false);
-  const [aiDraftByPatient, setAiDraftByPatient] = useState<Record<string, string | null>>({});
+  const [aiDraftByPatient, setAiDraftByPatient] = useState<
+    Record<string, string | null>
+  >({});
   const [actionNotice, setActionNotice] = useState<string | null>(null);
 
   // Get current patient's draft
@@ -136,12 +148,12 @@ export default function ChatShell({ patients = [] }: { patients?: Patient[] }) {
 
   const generateDraft = () => {
     if (!selected) return;
-    
+
     // If draft exists already, toggle the draft content only (do not close the panel)
     if (aiDraftByPatient[selected]) {
-      setAiDraftByPatient(prev => ({
+      setAiDraftByPatient((prev) => ({
         ...prev,
-        [selected]: null
+        [selected]: null,
       }));
       return;
     }
@@ -155,9 +167,9 @@ export default function ChatShell({ patients = [] }: { patients?: Patient[] }) {
     const suggestion =
       "Gợi ý: Cân nhắc dùng Captopril 25mg uống ngay, theo dõi huyết áp, chuẩn bị chuyển viện nếu cần.";
 
-    setAiDraftByPatient(prev => ({
+    setAiDraftByPatient((prev) => ({
       ...prev,
-      [selected]: `${summary}\n\n${suggestion}`
+      [selected]: `${summary}\n\n${suggestion}`,
     }));
     setAiOpen(true);
     showSuccessNotice("Tạo AI Draft");
@@ -342,10 +354,7 @@ export default function ChatShell({ patients = [] }: { patients?: Patient[] }) {
       <div className="relative">
         {/* backdrop overlay when AI panel open */}
         {aiOpen ? (
-          <div
-            onClick={() => setAiOpen(false)}
-            className="absolute inset-0 z-20 bg-black/20 transition-opacity"
-          />
+          <div className="absolute inset-0 z-20 bg-black/20 transition-opacity" />
         ) : null}
       </div>
 
@@ -380,9 +389,10 @@ export default function ChatShell({ patients = [] }: { patients?: Patient[] }) {
                 <button
                   onClick={() => {
                     const suggestionIndex = currentAiDraft.indexOf("Gợi ý: ");
-                    const suggestionText = suggestionIndex !== -1 
-                      ? currentAiDraft.substring(suggestionIndex + 7) 
-                      : currentAiDraft;
+                    const suggestionText =
+                      suggestionIndex !== -1
+                        ? currentAiDraft.substring(suggestionIndex + 7)
+                        : currentAiDraft;
                     insertSuggestion(suggestionText);
                   }}
                   className="mt-3 w-full rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition transform duration-150 hover:bg-emerald-700 hover:scale-105 shadow-sm focus:outline-none focus:ring-4 focus:ring-emerald-100"
