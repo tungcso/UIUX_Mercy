@@ -18,35 +18,84 @@ export default function ChatShell({ patients = [] }: { patients?: Patient[] }) {
     patients[0]?.id ?? null,
   );
 
-  const [messages, setMessages] = useState(() => [
-    {
-      id: "1",
-      from: "patient",
-      text: "Chào bác sĩ Trí, tôi vừa uống thuốc hạ áp khẩn cấp nhưng vẫn buốt đau vùng chẩm sau tai.",
-      time: "10:02",
-    },
-    {
-      id: "2",
-      from: "doctor",
-      text: "Chào chị Mai, máy đo của chị hiển thị chỉ số 180/120 mmHg. Chị cần nằm bất động đầu cao 30 độ.",
-      time: "10:04",
-    },
-    {
-      id: "3",
-      from: "patient",
-      text: "Tôi đã nằm yên một chỗ rồi, nhờ bác sĩ kê đơn hoặc hướng dẫn cấp cứu giúp.",
-      time: "10:05",
-    },
-  ]);
+  // Messages for each patient
+  const messagesByPatient: Record<string, Array<{ id: string; from: "doctor" | "patient"; text: string; time?: string }>> = {
+    "1": [
+      {
+        id: "1",
+        from: "patient",
+        text: "Chào bác sĩ Trí, tôi vừa uống thuốc hạ áp khẩn cấp nhưng vẫn buốt đau vùng chẩm sau tai.",
+        time: "10:02",
+      },
+      {
+        id: "2",
+        from: "doctor",
+        text: "Chào chị Mai, máy đo của chị hiển thị chỉ số 180/120 mmHg. Chị cần nằm bất động đầu cao 30 độ.",
+        time: "10:04",
+      },
+      {
+        id: "3",
+        from: "patient",
+        text: "Tôi đã nằm yên một chỗ rồi, nhờ bác sĩ kê đơn hoặc hướng dẫn cấp cứu giúp.",
+        time: "10:05",
+      },
+    ],
+    "2": [
+      {
+        id: "1",
+        from: "patient",
+        text: "Bác sĩ ơi, tôi vừa kiểm tra glucose, con số hiện là 145 mg/dL. Có bình thường không bác?",
+        time: "09:30",
+      },
+      {
+        id: "2",
+        from: "doctor",
+        text: "Chào anh Bảo, con số 145 mg/dL là cao một chút. Anh cần kiểm soát chế độ ăn uống.",
+        time: "09:32",
+      },
+    ],
+    "3": [
+      {
+        id: "1",
+        from: "patient",
+        text: "Bác sĩ, tôi chuẩn bị xuất viện. Cháu có cần phải làm gì thêm không?",
+        time: "08:15",
+      },
+      {
+        id: "2",
+        from: "doctor",
+        text: "Chào anh Nam, chúc mừng anh sắp xuất viện. Anh cần tuân thủ hướng dẫn về thuốc và tái khám.",
+        time: "08:17",
+      },
+      {
+        id: "3",
+        from: "patient",
+        text: "Cảm ơn bác sĩ rất nhiều. Tôi sẽ tuân thủ đầy đủ.",
+        time: "08:18",
+      },
+    ],
+  };
+
+  const [messages, setMessages] = useState(() => messagesByPatient[selected] ?? []);
 
   const [messageInput, setMessageInput] = useState("");
   const [aiOpen, setAiOpen] = useState(false);
-  const [aiDraft, setAiDraft] = useState<string | null>(null);
+  const [aiDraftByPatient, setAiDraftByPatient] = useState<Record<string, string | null>>({});
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+
+  // Get current patient's draft
+  const currentAiDraft = selected ? aiDraftByPatient[selected] : null;
 
   const showSuccessNotice = (actionName: string) => {
     setActionNotice(`${actionName} thành công`);
   };
+
+  // Update messages when selected patient changes
+  React.useEffect(() => {
+    setMessages(messagesByPatient[selected] ?? []);
+    setMessageInput("");
+    setAiOpen(false);
+  }, [selected]);
 
   const sampleSuggestions = [
     {
@@ -86,9 +135,14 @@ export default function ChatShell({ patients = [] }: { patients?: Patient[] }) {
   };
 
   const generateDraft = () => {
+    if (!selected) return;
+    
     // If draft exists already, toggle the draft content only (do not close the panel)
-    if (aiDraft) {
-      setAiDraft(null);
+    if (aiDraftByPatient[selected]) {
+      setAiDraftByPatient(prev => ({
+        ...prev,
+        [selected]: null
+      }));
       return;
     }
 
@@ -101,7 +155,10 @@ export default function ChatShell({ patients = [] }: { patients?: Patient[] }) {
     const suggestion =
       "Gợi ý: Cân nhắc dùng Captopril 25mg uống ngay, theo dõi huyết áp, chuẩn bị chuyển viện nếu cần.";
 
-    setAiDraft(`${summary}\n\n${suggestion}`);
+    setAiDraftByPatient(prev => ({
+      ...prev,
+      [selected]: `${summary}\n\n${suggestion}`
+    }));
     setAiOpen(true);
     showSuccessNotice("Tạo AI Draft");
   };
@@ -116,7 +173,7 @@ export default function ChatShell({ patients = [] }: { patients?: Patient[] }) {
   }, [actionNotice]);
 
   return (
-    <div className="relative flex h-[80vh] min-h-[500px] overflow-hidden rounded-lg border border-slate-200 bg-white">
+    <div className="relative flex h-[90vh] overflow-hidden rounded-lg border border-slate-200 bg-white">
       {actionNotice ? (
         <div className="fixed right-4 top-4 z-[60] flex items-center gap-3 rounded-2xl border border-emerald-200 bg-white px-4 py-3 text-sm font-medium text-emerald-700 shadow-[0_16px_40px_rgba(15,23,42,0.16)]">
           <CheckCircle2 className="h-5 w-5 text-emerald-600" />
@@ -124,13 +181,13 @@ export default function ChatShell({ patients = [] }: { patients?: Patient[] }) {
         </div>
       ) : null}
 
-      <div className="w-52 border-r border-slate-100 p-2.5">
+      <div className="w-72 border-r border-slate-100 p-4">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-[11px] font-bold text-slate-700">
             Hộp thư tư vấn trực tuyến
           </h3>
         </div>
-        <div className="space-y-4 overflow-y-auto">
+        <div className="space-y-3 overflow-y-auto">
           {/* Group patients into sections: urgent, follow-up, completed */}
           {(() => {
             const urgent = patients.filter((p) => p.urgent);
@@ -147,12 +204,12 @@ export default function ChatShell({ patients = [] }: { patients?: Patient[] }) {
                         Cần ưu tiên gấp
                       </h4>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2.5">
                       {urgent.map((p) => (
                         <button
                           key={p.id}
                           onClick={() => setSelected(p.id)}
-                          className={`flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left text-[11px] transition-shadow ${
+                          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-[11px] transition-shadow ${
                             selected === p.id
                               ? "bg-rose-50/60 shadow-sm"
                               : "hover:bg-slate-50"
@@ -192,12 +249,12 @@ export default function ChatShell({ patients = [] }: { patients?: Patient[] }) {
                         Lịch hẹn theo dõi
                       </h4>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2.5">
                       {followUp.map((p) => (
                         <button
                           key={p.id}
                           onClick={() => setSelected(p.id)}
-                          className={`flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left text-[11px] transition-shadow ${
+                          className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-[11px] transition-shadow ${
                             selected === p.id
                               ? "bg-slate-50 shadow-sm"
                               : "hover:bg-slate-50"
@@ -241,11 +298,11 @@ export default function ChatShell({ patients = [] }: { patients?: Patient[] }) {
                         Đã hoàn thành
                       </h4>
                     </div>
-                    <div className="space-y-2">
+                    <div className="space-y-2.5">
                       {completed.map((p) => (
                         <div
                           key={p.id}
-                          className="flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left text-[11px] transition-shadow opacity-70 text-slate-400"
+                          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-[11px] transition-shadow opacity-70 text-slate-400"
                         >
                           <div className="relative">
                             <div className="flex h-7 w-7 items-center justify-center rounded-full bg-emerald-50 text-[11px] font-bold text-emerald-300">
@@ -272,6 +329,7 @@ export default function ChatShell({ patients = [] }: { patients?: Patient[] }) {
 
       <div className="relative flex-1 transition-all duration-300 ease-in-out">
         <ChatWindow
+          selectedPatient={patients.find((p) => p.id === selected)}
           messages={messages}
           messageInput={messageInput}
           setMessageInput={setMessageInput}
@@ -311,16 +369,22 @@ export default function ChatShell({ patients = [] }: { patients?: Patient[] }) {
           </div>
 
           <div className="mt-4 flex-1 overflow-y-auto pr-2 space-y-4">
-            {aiDraft ? (
+            {currentAiDraft ? (
               <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
                 <div className="text-sm font-semibold text-slate-800">
                   TÓM TẮT CA BỆNH NHANH
                 </div>
                 <p className="mt-2 text-sm text-slate-700 whitespace-pre-wrap">
-                  {aiDraft}
+                  {currentAiDraft}
                 </p>
                 <button
-                  onClick={() => insertSuggestion(aiDraft)}
+                  onClick={() => {
+                    const suggestionIndex = currentAiDraft.indexOf("Gợi ý: ");
+                    const suggestionText = suggestionIndex !== -1 
+                      ? currentAiDraft.substring(suggestionIndex + 7) 
+                      : currentAiDraft;
+                    insertSuggestion(suggestionText);
+                  }}
                   className="mt-3 w-full rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition transform duration-150 hover:bg-emerald-700 hover:scale-105 shadow-sm focus:outline-none focus:ring-4 focus:ring-emerald-100"
                 >
                   SỬ DỤNG GỢI Ý NÀY

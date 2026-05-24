@@ -64,6 +64,7 @@ function StatusPill({
 }) {
   const toneClasses = {
     green: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    red: "border-red-200 bg-red-50 text-red-700",
     slate: "border-slate-200 bg-slate-50 text-slate-600",
   };
 
@@ -781,6 +782,7 @@ type Appointment = {
   statusTone: "green" | "red" | "slate";
   accent: "green" | "red" | "slate";
   actionLabel: string;
+  patientId: string;
 };
 
 export default function DoctorDashboardPage() {
@@ -870,12 +872,13 @@ export default function DoctorDashboardPage() {
       initials: "TB",
       name: "Trần Quốc Bảo",
       details:
-        "Nam, 38T · Đau phía ruột thừa · Mạch ổn định · Đang truyền dịch",
+        "Nam, 32T · Chấn thương mạch máu · Mạch ổn định · Đang truyền dịch",
       time: "10:32",
       status: "Dữ liệu bình thường",
       statusTone: "green" as const,
       accent: "green" as const,
       actionLabel: "Xem chi tiết",
+      patientId: "BN-9083",
     },
     {
       initials: "LM",
@@ -887,17 +890,19 @@ export default function DoctorDashboardPage() {
       statusTone: "red" as const,
       accent: "red" as const,
       actionLabel: "Xử trí khẩn cấp",
+      patientId: "BN-9081",
     },
     {
       initials: "PN",
       name: "Phạm Hoàng Nam",
       details:
-        "Nam, 45T · Khám nội định kỳ · Sức khỏe bình thường · Chuẩn bị xuất viện",
+        "Nam, 56T · Khám nội định kỳ · Sức khỏe bình thường · Chưa xử trị",
       time: "09:15",
       status: "Đang chờ",
       statusTone: "slate" as const,
       accent: "slate" as const,
       actionLabel: "Xem chi tiết",
+      patientId: "BN-9082",
     },
   ];
 
@@ -2030,7 +2035,10 @@ export default function DoctorDashboardPage() {
                   <div className="mt-5 flex gap-3">
                     <button
                       type="button"
-                      onClick={() => setSelectedAppointment(null)}
+                      onClick={() => {
+                        router.push(`/doctor/patients?id=${selectedAppointment?.patientId}`);
+                        setSelectedAppointment(null);
+                      }}
                       className="flex-1 rounded-2xl bg-teal-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(13,148,136,0.24)] transition-all hover:-translate-y-0.5 hover:bg-teal-700"
                     >
                       Mở hồ sơ
@@ -2236,6 +2244,10 @@ export default function DoctorDashboardPage() {
                   <div className="mt-4 flex gap-3">
                     <button
                       type="button"
+                      onClick={() => {
+                        router.push("/doctor/consult");
+                        setIsQuickAlertOpen(false);
+                      }}
                       className="flex-1 rounded-2xl bg-teal-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(13,148,136,0.24)] transition-all hover:-translate-y-0.5 hover:bg-teal-700"
                     >
                       Chat khẩn cấp
@@ -2243,7 +2255,10 @@ export default function DoctorDashboardPage() {
 
                     <button
                       type="button"
-                      onClick={() => setIsQuickAlertOpen(false)}
+                      onClick={() => {
+                        router.push(`/doctor/patients?id=${selectedAppointment?.patientId}`);
+                        setIsQuickAlertOpen(false);
+                      }}
                       className="flex-1 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
                     >
                       Xem bệnh án
