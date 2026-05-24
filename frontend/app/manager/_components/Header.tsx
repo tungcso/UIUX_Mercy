@@ -1,19 +1,19 @@
 export default function Header() {
   return (
-    <div className="mb-5 flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-[28px] font-bold tracking-[-0.03em] text-slate-900">
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between rounded-[1.65rem] border border-slate-200/80 bg-white px-6 py-4 shadow-[0_18px_45px_rgba(15,23,42,0.02)] mb-6">
+      <div>
+        <h2 className="text-xl font-bold tracking-tight text-slate-800">
           Bảng điều hành
-        </h1>
-        <span className="rounded-full bg-slate-100 px-3 py-2 text-[13px] font-medium text-slate-500 shadow-sm">
+        </h2>
+        <p className="text-xs font-medium text-slate-400 mt-1">
           Hôm nay: Thứ Sáu, 22 tháng 5, 2026
-        </span>
+        </p>
       </div>
-
-      <div className="flex justify-start lg:justify-end">
-        <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-[13px] font-semibold text-emerald-700 shadow-[0_8px_20px_rgba(16,185,129,0.08)]">
+      <div className="flex items-center gap-3">
+        <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-4 py-1.5 text-xs font-semibold text-emerald-700 border border-emerald-100/50">
+          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
           Hệ thống hoạt động ổn định
-        </span>
+        </div>
       </div>
     </div>
   );

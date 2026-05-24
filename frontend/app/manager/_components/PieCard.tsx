@@ -1,4 +1,8 @@
-export default function PieCard() {
+type Props = {
+  onOpen?: () => void;
+};
+
+export default function PieCard({ onOpen }: Props) {
   // Four segments to match reference layout
   const segments = [
     { label: "Tim mạch", value: 35, color: "#2b83f6" },
@@ -24,11 +28,19 @@ export default function PieCard() {
   let offset = 0;
 
   return (
-    <div className="w-full bg-white rounded-2xl shadow-lg p-4">
+    <div className="w-full h-full flex flex-col justify-between">
+      <div className="mb-4">
+        <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-blue-600">Tải lượng khoa chuyên</span>
+        <h3 className="text-sm font-bold text-slate-800 mt-0.5">
+          Tỷ lệ cuộc hẹn theo Chuyên Khoa
+        </h3>
+      </div>
       <div className="flex flex-col items-center gap-4">
         <div
-          className="flex items-center justify-center"
+          className="flex items-center justify-center cursor-pointer"
           style={{ width: 220 }}
+          role="button"
+          onClick={() => onOpen?.()}
         >
           <svg width="160" height="160" viewBox="0 0 64 64">
             <defs>
@@ -141,7 +153,16 @@ export default function PieCard() {
               </div>
             ))}
           </div>
-          <div className="mt-6 text-xs uppercase font-semibold text-slate-300 text-center">
+          <div
+            className="mt-6 text-xs uppercase font-semibold text-sky-600 hover:underline hover:text-sky-700 transition-colors text-center cursor-pointer"
+            role="button"
+            tabIndex={0}
+            aria-label="Xem số lượng theo chuyên khoa"
+            onClick={() => onOpen?.()}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") onOpen?.();
+            }}
+          >
             Nhấn để xem số lượng theo chuyên khoa
           </div>
         </div>
