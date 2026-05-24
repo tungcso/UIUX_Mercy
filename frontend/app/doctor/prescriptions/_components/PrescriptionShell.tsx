@@ -164,7 +164,9 @@ export default function PrescriptionShell() {
               setIsAiReportOpen((value) => {
                 const next = !value;
                 if (next) {
-                  showSuccessNotice("Phân tích tương tác chéo chuyên sâu bằng AI");
+                  showSuccessNotice(
+                    "Phân tích tương tác chéo chuyên sâu bằng AI",
+                  );
                 }
                 return next;
               });

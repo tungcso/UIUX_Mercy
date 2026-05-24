@@ -1536,16 +1536,16 @@ export default function DoctorDashboardPage() {
                   </div>
 
                   <div className="mt-5 flex gap-3">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsDiagnosisPopupOpen(false);
-                          setActionNotice("Áp dụng chẩn đoán thành công");
-                        }}
-                        className="flex-1 rounded-2xl bg-teal-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(13,148,136,0.24)] transition-all hover:-translate-y-0.5 hover:bg-teal-700"
-                      >
-                        Áp dụng chẩn đoán
-                      </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsDiagnosisPopupOpen(false);
+                        setActionNotice("Áp dụng chẩn đoán thành công");
+                      }}
+                      className="flex-1 rounded-2xl bg-teal-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(13,148,136,0.24)] transition-all hover:-translate-y-0.5 hover:bg-teal-700"
+                    >
+                      Áp dụng chẩn đoán
+                    </button>
 
                     <button
                       type="button"
@@ -1623,10 +1623,10 @@ export default function DoctorDashboardPage() {
                   <div className="mt-5 flex gap-3">
                     <button
                       type="button"
-                        onClick={() => {
-                          setIsAiErrorPopupOpen(false);
-                          setActionNotice("Gửi báo cáo thành công");
-                        }}
+                      onClick={() => {
+                        setIsAiErrorPopupOpen(false);
+                        setActionNotice("Gửi báo cáo thành công");
+                      }}
                       className="flex-1 rounded-2xl bg-[#ff8a1f] px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(249,115,22,0.25)] transition-all hover:-translate-y-0.5 hover:bg-[#f97316]"
                     >
                       Gửi báo cáo
