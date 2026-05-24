@@ -10,7 +10,17 @@ type Message = {
   time?: string;
 };
 
+type Patient = {
+  id: string;
+  name: string;
+  note?: string;
+  urgent?: boolean;
+  unread?: number;
+  online?: boolean;
+};
+
 export default function ChatWindow({
+  selectedPatient,
   messages = [],
   messageInput,
   setMessageInput,
@@ -18,6 +28,7 @@ export default function ChatWindow({
   aiOpen,
   toggleAi,
 }: {
+  selectedPatient?: Patient;
   messages?: Message[];
   messageInput: string;
   setMessageInput: (v: string) => void;
@@ -47,7 +58,7 @@ export default function ChatWindow({
             HỘI THOẠI TRỰC TUYẾN
           </div>
           <div className="mt-1 text-base font-bold text-slate-900">
-            Bệnh nhân: Lê Thị Mai
+            Bệnh nhân: {selectedPatient?.name ?? "Chọn bệnh nhân"}
           </div>
         </div>
 

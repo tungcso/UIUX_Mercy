@@ -153,7 +153,7 @@ export function AppSidebar({
       ) : null}
 
       <aside
-        className={`hidden shrink-0 border-r border-slate-200 bg-white py-4 shadow-[0_0_35px_rgba(15,23,42,0.03)] lg:flex lg:flex-col ${compact ? "w-20 px-2" : "w-62.5 px-4"}`}
+        className={`hidden shrink-0 border-r border-slate-200 bg-white py-4 shadow-[0_0_35px_rgba(15,23,42,0.03)] lg:flex lg:flex-col relative z-50 pointer-events-auto ${compact ? "w-20 px-2" : "w-62.5 px-4"}`}
       >
         <div className="mb-4 flex items-start gap-3 px-2">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-[0_10px_24px_rgba(16,185,129,0.25)]">
