@@ -1,0 +1,141 @@
+.page {
+  min-height: 100vh;
+  background: #f7faf9;
+  font-family:
+    Inter,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial;
+}
+.container {
+  display: flex;
+  min-height: 100vh;
+}
+.sidebar {
+  width: 220px;
+  background: #ffffff;
+  border-right: 1px solid #eef2f4;
+  padding: 24px 16px;
+}
+.logo {
+  font-weight: 700;
+  color: #14b37d;
+  margin-bottom: 24px;
+}
+.nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.navItem {
+  background: transparent;
+  border: none;
+  text-align: left;
+  padding: 10px 8px;
+  border-radius: 8px;
+  color: #4b5563;
+}
+.navItem[aria-current="true"] {
+  background: #f0fff7;
+  color: #0f766e;
+}
+.main {
+  flex: 1;
+  padding: 32px;
+}
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+.header h1 {
+  font-size: 20px;
+  margin: 0;
+  color: #0f172a;
+}
+.headerActions {
+}
+.analysisBtn {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  padding: 10px 14px;
+  border-radius: 8px;
+}
+.searchSection {
+  margin: 18px 0 24px 0;
+}
+.searchInput {
+  width: 100%;
+  max-width: 720px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border: 1px solid #e6eef0;
+  background: white;
+}
+.tableSection {
+}
+.tableCard {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 1px 0 rgba(16, 24, 40, 0.03);
+  border: 1px solid #eef2f4;
+  overflow: hidden;
+}
+.tableHeader {
+  display: grid;
+  grid-template-columns: 2fr 1fr 2fr 1fr;
+  gap: 12px;
+  padding: 18px 20px;
+  color: #6b7280;
+  font-size: 14px;
+  border-bottom: 1px solid #f1f5f9;
+}
+.tableRow {
+  display: grid;
+  grid-template-columns: 2fr 1fr 2fr 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 14px 20px;
+  border-bottom: 1px solid #fbfcfd;
+}
+.drugName {
+}
+.drugTitle {
+  font-weight: 600;
+  color: #0f172a;
+}
+.drugDose {
+  font-size: 12px;
+  color: #94a3b8;
+}
+.qty {
+  color: #0f172a;
+}
+.usage {
+  color: #334155;
+}
+.action {
+  text-align: right;
+}
+.removeBtn {
+  background: transparent;
+  color: #ef4444;
+  border: none;
+}
+.footerBar {
+  position: fixed;
+  right: 28px;
+  bottom: 28px;
+}
+.signBtn {
+  background: #10b981;
+  color: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+  border: none;
+}
