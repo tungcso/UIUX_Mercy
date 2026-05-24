@@ -68,7 +68,11 @@ export default function StatChart() {
           width={computedBarWidth}
           height={finalHeight}
           rx={20}
-          fill={b.label === "Tháng này" ? "url(#barActiveGradient)" : "url(#barBlueGradient)"}
+          fill={
+            b.label === "Tháng này"
+              ? "url(#barActiveGradient)"
+              : "url(#barBlueGradient)"
+          }
           transform={`translate(0,${yFinal + finalHeight}) scale(1,${scaleY}) translate(0,${-(yFinal + finalHeight)})`}
           style={{
             transformBox: "fill-box",
@@ -122,7 +126,9 @@ export default function StatChart() {
     <div className="h-full flex flex-col justify-between">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
-          <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-blue-600">Doanh thu phòng khám</span>
+          <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-blue-600">
+            Doanh thu phòng khám
+          </span>
           <h3 className="text-sm font-bold text-slate-800 mt-0.5">
             Thống kê doanh thu thời gian thực (5 tháng qua)
           </h3>
@@ -144,8 +150,18 @@ export default function StatChart() {
             setTimeout(() => setLoaded(true), 20);
           }}
         >
-          <svg className="h-3.5 w-3.5 animate-spin-slow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 15H19" />
+          <svg
+            className="h-3.5 w-3.5 animate-spin-slow"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2.5"
+              d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 15H19"
+            />
           </svg>
           Cập nhật tự động
         </button>
@@ -180,14 +196,62 @@ export default function StatChart() {
           />
 
           {/* Horizontal grid lines */}
-          <line x1={padding} y1={baseline - 30} x2={innerW + padding} y2={baseline - 30} stroke="#e2e8f0" strokeDasharray="4 4" strokeWidth="1" />
-          <line x1={padding} y1={baseline - 65} x2={innerW + padding} y2={baseline - 65} stroke="#e2e8f0" strokeDasharray="4 4" strokeWidth="1" />
-          <line x1={padding} y1={baseline - 100} x2={innerW + padding} y2={baseline - 100} stroke="#e2e8f0" strokeDasharray="4 4" strokeWidth="1" />
+          <line
+            x1={padding}
+            y1={baseline - 30}
+            x2={innerW + padding}
+            y2={baseline - 30}
+            stroke="#e2e8f0"
+            strokeDasharray="4 4"
+            strokeWidth="1"
+          />
+          <line
+            x1={padding}
+            y1={baseline - 65}
+            x2={innerW + padding}
+            y2={baseline - 65}
+            stroke="#e2e8f0"
+            strokeDasharray="4 4"
+            strokeWidth="1"
+          />
+          <line
+            x1={padding}
+            y1={baseline - 100}
+            x2={innerW + padding}
+            y2={baseline - 100}
+            stroke="#e2e8f0"
+            strokeDasharray="4 4"
+            strokeWidth="1"
+          />
 
           {/* Grid line labels */}
-          <text x={padding + 10} y={baseline - 34} fontSize="8" fontWeight="bold" fill="#94a3b8">50M</text>
-          <text x={padding + 10} y={baseline - 69} fontSize="8" fontWeight="bold" fill="#94a3b8">100M</text>
-          <text x={padding + 10} y={baseline - 104} fontSize="8" fontWeight="bold" fill="#94a3b8">150M</text>
+          <text
+            x={padding + 10}
+            y={baseline - 34}
+            fontSize="8"
+            fontWeight="bold"
+            fill="#94a3b8"
+          >
+            50M
+          </text>
+          <text
+            x={padding + 10}
+            y={baseline - 69}
+            fontSize="8"
+            fontWeight="bold"
+            fill="#94a3b8"
+          >
+            100M
+          </text>
+          <text
+            x={padding + 10}
+            y={baseline - 104}
+            fontSize="8"
+            fontWeight="bold"
+            fill="#94a3b8"
+          >
+            150M
+          </text>
 
           {barElements.map((el, idx) =>
             React.cloneElement(el as any, {
@@ -201,18 +265,17 @@ export default function StatChart() {
           <span>Đơn vị: Triệu VND</span>
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-blue-600" /> Tháng này
-            <span className="h-2 w-2 rounded-full bg-blue-300 ml-2" /> Tháng trước
+            <span className="h-2 w-2 rounded-full bg-blue-300 ml-2" /> Tháng
+            trước
           </span>
         </div>
       </div>
 
       {selectedBar ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <button
-            type="button"
-            aria-label="Đóng chi tiết doanh thu"
+          <div
+            aria-hidden="true"
             className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
-            onClick={() => setSelectedBar(null)}
           />
 
           <div className="relative w-full max-w-md animate-alert-modal rounded-[1.75rem] border border-slate-200 bg-white p-6 font-sans shadow-[0_24px_70px_rgba(15,23,42,0.22)]">

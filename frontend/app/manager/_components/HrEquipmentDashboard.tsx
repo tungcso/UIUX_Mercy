@@ -71,7 +71,10 @@ type HrEquipmentDashboardProps = {
   setMachines: React.Dispatch<React.SetStateAction<Machine[]>>;
 };
 
-export default function HrEquipmentDashboard({ machines, setMachines }: HrEquipmentDashboardProps) {
+export default function HrEquipmentDashboard({
+  machines,
+  setMachines,
+}: HrEquipmentDashboardProps) {
   const [selectedMachine, setSelectedMachine] = useState<Machine | null>(null);
   // Command 1 State
   const [cmd1State, setCmd1State] = useState<CommandState>("pending");
@@ -155,7 +158,8 @@ export default function HrEquipmentDashboard({ machines, setMachines }: HrEquipm
           </h3>
           <p className="mt-2 text-xs leading-relaxed text-slate-500">
             Lượng bệnh nhân tại khoa Nội đang vượt quá 85% công suất thiết kế.
-            Hệ thống đề xuất điều động khẩn cấp 1 Bác sĩ dự phòng từ khoa Ngoại sang hỗ trợ.
+            Hệ thống đề xuất điều động khẩn cấp 1 Bác sĩ dự phòng từ khoa Ngoại
+            sang hỗ trợ.
           </p>
 
           {cmd1State === "pending" && (
@@ -181,7 +185,10 @@ export default function HrEquipmentDashboard({ machines, setMachines }: HrEquipm
           {cmd1State === "approved" && (
             <div className="mt-6 flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-100 p-3 text-xs font-semibold text-emerald-800 animate-slide-up">
               <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0" />
-              <span>Đã duyệt! Lệnh điều phối bác sĩ tăng cường khoa Nội đã được gửi đi.</span>
+              <span>
+                Đã duyệt! Lệnh điều phối bác sĩ tăng cường khoa Nội đã được gửi
+                đi.
+              </span>
             </div>
           )}
 
@@ -205,10 +212,13 @@ export default function HrEquipmentDashboard({ machines, setMachines }: HrEquipm
           </div>
 
           <h3 className="mt-4 text-base font-bold text-slate-800 leading-snug">
-            Xác nhận chi ngân sách sửa chữa / bảo trì thiết bị khi máy báo lỗi đỏ
+            Xác nhận chi ngân sách sửa chữa / bảo trì thiết bị khi máy báo lỗi
+            đỏ
           </h3>
           <p className="mt-2 text-xs leading-relaxed text-slate-500">
-            Kích hoạt nhanh gói bảo trì 24/7 của hãng đối với máy MRI 3.0T bị báo lỗi đỏ để phục hồi hoạt động khám chữa bệnh. Dự toán chi phí ước tính: 45 triệu VND.
+            Kích hoạt nhanh gói bảo trì 24/7 của hãng đối với máy MRI 3.0T bị
+            báo lỗi đỏ để phục hồi hoạt động khám chữa bệnh. Dự toán chi phí ước
+            tính: 45 triệu VND.
           </p>
 
           {cmd2State === "pending" && (
@@ -234,7 +244,10 @@ export default function HrEquipmentDashboard({ machines, setMachines }: HrEquipm
           {cmd2State === "approved" && (
             <div className="mt-6 flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-100 p-3 text-xs font-semibold text-emerald-800 animate-slide-up">
               <CheckCircle className="h-4 w-4 text-emerald-600 shrink-0" />
-              <span>Đã phê duyệt chi ngân sách sửa chữa khẩn cấp! Kỹ thuật viên đang đến.</span>
+              <span>
+                Đã phê duyệt chi ngân sách sửa chữa khẩn cấp! Kỹ thuật viên đang
+                đến.
+              </span>
             </div>
           )}
 
@@ -266,11 +279,13 @@ export default function HrEquipmentDashboard({ machines, setMachines }: HrEquipm
 
             if (machine.status === "running") {
               statusText = "ĐANG CHẠY";
-              statusStyle = "bg-emerald-50 text-emerald-700 border-emerald-100/50";
+              statusStyle =
+                "bg-emerald-50 text-emerald-700 border-emerald-100/50";
               dotColor = "bg-emerald-500";
             } else if (machine.status === "error") {
               statusText = "BÁO LỖI ĐỎ";
-              statusStyle = "bg-rose-50 text-rose-700 border-rose-100/50 animate-pulse";
+              statusStyle =
+                "bg-rose-50 text-rose-700 border-rose-100/50 animate-pulse";
               dotColor = "bg-rose-500";
             } else if (machine.status === "repairing") {
               statusText = "ĐANG SỬA CHỮA";
@@ -297,11 +312,13 @@ export default function HrEquipmentDashboard({ machines, setMachines }: HrEquipm
                 </div>
 
                 <div className="mt-4 pt-3 border-t border-slate-50 space-y-2">
-                  <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${statusStyle}`}>
+                  <span
+                    className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${statusStyle}`}
+                  >
                     <span className={`h-1.5 w-1.5 rounded-full ${dotColor}`} />
                     {statusText}
                   </span>
-                  
+
                   <div className="flex justify-between items-center text-[10px] text-slate-400 font-medium">
                     <span>Công suất: {machine.power}%</span>
                     <span>Nhiệt độ: {machine.temp}°C</span>
@@ -315,11 +332,9 @@ export default function HrEquipmentDashboard({ machines, setMachines }: HrEquipm
       {/* Interactive AI Equipment Details Modal */}
       {selectedMachine ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <button
-            type="button"
-            aria-label="Đóng chi tiết thiết bị"
+          <div
+            aria-hidden="true"
             className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px] transition-opacity"
-            onClick={() => setSelectedMachine(null)}
           />
 
           <div className="relative w-full max-w-lg animate-alert-modal rounded-[1.75rem] border border-slate-200 bg-white p-6 font-sans shadow-[0_24px_70px_rgba(15,23,42,0.22)]">
@@ -347,28 +362,43 @@ export default function HrEquipmentDashboard({ machines, setMachines }: HrEquipm
             {/* Current Real-time Metrics Grid */}
             <div className="mt-4 grid grid-cols-3 gap-3">
               <div className="rounded-xl border border-slate-100 p-2.5 text-center">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Trạng thái</span>
-                <span className={`inline-flex items-center gap-1 mt-1.5 text-xs font-bold ${
-                  selectedMachine.status === "running" ? "text-emerald-600" :
-                  selectedMachine.status === "error" ? "text-rose-600 animate-pulse" :
-                  selectedMachine.status === "repairing" ? "text-amber-600" : "text-slate-500"
-                }`}>
-                  ● {
-                    selectedMachine.status === "running" ? "Đang chạy" :
-                    selectedMachine.status === "error" ? "Báo lỗi đỏ" :
-                    selectedMachine.status === "repairing" ? "Bảo trì" : "Đang trống"
-                  }
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Trạng thái
+                </span>
+                <span
+                  className={`inline-flex items-center gap-1 mt-1.5 text-xs font-bold ${
+                    selectedMachine.status === "running"
+                      ? "text-emerald-600"
+                      : selectedMachine.status === "error"
+                        ? "text-rose-600 animate-pulse"
+                        : selectedMachine.status === "repairing"
+                          ? "text-amber-600"
+                          : "text-slate-500"
+                  }`}
+                >
+                  ●{" "}
+                  {selectedMachine.status === "running"
+                    ? "Đang chạy"
+                    : selectedMachine.status === "error"
+                      ? "Báo lỗi đỏ"
+                      : selectedMachine.status === "repairing"
+                        ? "Bảo trì"
+                        : "Đang trống"}
                 </span>
               </div>
               <div className="rounded-xl border border-slate-100 p-2.5 text-center">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Công suất</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Công suất
+                </span>
                 <span className="text-sm font-bold text-slate-800 block mt-1.5 flex items-center justify-center gap-1">
                   <Zap className="h-3.5 w-3.5 text-amber-500" />
                   {selectedMachine.power}%
                 </span>
               </div>
               <div className="rounded-xl border border-slate-100 p-2.5 text-center">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Nhiệt độ</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Nhiệt độ
+                </span>
                 <span className="text-sm font-bold text-slate-800 block mt-1.5 flex items-center justify-center gap-1">
                   <Thermometer className="h-3.5 w-3.5 text-blue-500" />
                   {selectedMachine.temp}°C
@@ -383,32 +413,44 @@ export default function HrEquipmentDashboard({ machines, setMachines }: HrEquipm
                   🤖
                 </span>
                 <span className="text-xs font-bold text-slate-700 tracking-wide uppercase">
-                  {selectedMachine.status === "error" ? "Đề xuất giải quyết tự động theo AI" : "Đánh giá sức khỏe AI"}
+                  {selectedMachine.status === "error"
+                    ? "Đề xuất giải quyết tự động theo AI"
+                    : "Đánh giá sức khỏe AI"}
                 </span>
               </div>
 
               {selectedMachine.status === "error" ? (
                 <div className="mt-2 text-xs text-slate-600 leading-relaxed space-y-2">
                   <p className="font-semibold text-rose-600">
-                    ⚠️ Ghi nhận lỗi MRI-TEMP-OVERHEAT: Cuộn siêu dẫn Magnet bị quá nhiệt vượt ngưỡng an toàn (42.1°C). Áp suất khí Heli giảm nhẹ.
+                    ⚠️ Ghi nhận lỗi MRI-TEMP-OVERHEAT: Cuộn siêu dẫn Magnet bị
+                    quá nhiệt vượt ngưỡng an toàn (42.1°C). Áp suất khí Heli
+                    giảm nhẹ.
                   </p>
                   <p className="font-medium text-slate-500">
-                    <strong className="text-slate-700">Các bước AI khuyến nghị lập tức:</strong>
+                    <strong className="text-slate-700">
+                      Các bước AI khuyến nghị lập tức:
+                    </strong>
                     <br />
-                    1. Kích hoạt bơm Heli lỏng phụ trợ khẩn cấp để hạ nhiệt cuộn Magnet.
+                    1. Kích hoạt bơm Heli lỏng phụ trợ khẩn cấp để hạ nhiệt cuộn
+                    Magnet.
                     <br />
                     2. Tạm ngắt dòng RF để cô lập nguồn nhiệt phát sinh.
                     <br />
-                    3. Đề xuất chuyển ca chụp tiếp theo sang phòng chụp CT dự phòng hoặc liên kết Mercy Clinic để bảo đảm lịch trình bệnh nhân.
+                    3. Đề xuất chuyển ca chụp tiếp theo sang phòng chụp CT dự
+                    phòng hoặc liên kết Mercy Clinic để bảo đảm lịch trình bệnh
+                    nhân.
                   </p>
                 </div>
               ) : selectedMachine.status === "repairing" ? (
                 <div className="mt-2 text-xs text-slate-600 leading-relaxed">
                   <p className="font-semibold text-amber-600">
-                    ⚙️ Đang xử lý sửa chữa khẩn cấp: Gói hỗ trợ bảo hành chính hãng đã được kích hoạt thành công.
+                    ⚙️ Đang xử lý sửa chữa khẩn cấp: Gói hỗ trợ bảo hành chính
+                    hãng đã được kích hoạt thành công.
                   </p>
                   <p className="mt-1 font-medium text-slate-500">
-                    Đội kỹ thuật viên chuyên trách đang thực hiện cân chỉnh lại hệ thống RF và bổ sung Helium. Ước tính thời gian hoàn tất chụp thử nghiệm: 15 phút.
+                    Đội kỹ thuật viên chuyên trách đang thực hiện cân chỉnh lại
+                    hệ thống RF và bổ sung Helium. Ước tính thời gian hoàn tất
+                    chụp thử nghiệm: 15 phút.
                   </p>
                 </div>
               ) : (
@@ -417,7 +459,9 @@ export default function HrEquipmentDashboard({ machines, setMachines }: HrEquipm
                     ✓ Chỉ số sức khỏe: Tuyệt hảo (98/100).
                   </p>
                   <p className="mt-1 font-medium text-slate-500">
-                    Tín hiệu IOT truyền phát liên tục và ổn định. Chu kỳ bảo trì máy tiếp theo dự kiến diễn ra sau 45 ngày nữa. Khuyến nghị chạy công suất tối ưu.
+                    Tín hiệu IOT truyền phát liên tục và ổn định. Chu kỳ bảo trì
+                    máy tiếp theo dự kiến diễn ra sau 45 ngày nữa. Khuyến nghị
+                    chạy công suất tối ưu.
                   </p>
                 </div>
               )}
@@ -436,8 +480,8 @@ export default function HrEquipmentDashboard({ machines, setMachines }: HrEquipm
                         prev.map((m) =>
                           m.id === selectedMachine.id
                             ? { ...m, status: "idle", power: 0, temp: 25 }
-                            : m
-                        )
+                            : m,
+                        ),
                       );
                       setSelectedMachine(null);
                     }}
@@ -454,9 +498,14 @@ export default function HrEquipmentDashboard({ machines, setMachines }: HrEquipm
                       setMachines((prev) =>
                         prev.map((m) =>
                           m.id === selectedMachine.id
-                            ? { ...m, status: "repairing", power: 10, temp: 37.5 }
-                            : m
-                        )
+                            ? {
+                                ...m,
+                                status: "repairing",
+                                power: 10,
+                                temp: 37.5,
+                              }
+                            : m,
+                        ),
                       );
                       setCmd2State("approved"); // Sync with top duyệt lệnh 2!
                       setSelectedMachine(null);
@@ -478,8 +527,8 @@ export default function HrEquipmentDashboard({ machines, setMachines }: HrEquipm
                       prev.map((m) =>
                         m.id === selectedMachine.id
                           ? { ...m, status: "running", power: 80, temp: 36.5 }
-                          : m
-                      )
+                          : m,
+                      ),
                     );
                     setSelectedMachine(null);
                   }}
@@ -499,10 +548,12 @@ export default function HrEquipmentDashboard({ machines, setMachines }: HrEquipm
                       prev.map((m) =>
                         m.id === selectedMachine.id
                           ? { ...m, power: 99, temp: 39.2 }
-                          : m
-                      )
+                          : m,
+                      ),
                     );
-                    window.alert(`Đang khởi chạy kiểm tra tải tối đa (99% công suất) cho thiết bị ${selectedMachine.code}...`);
+                    window.alert(
+                      `Đang khởi chạy kiểm tra tải tối đa (99% công suất) cho thiết bị ${selectedMachine.code}...`,
+                    );
                     setSelectedMachine(null);
                   }}
                   className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white text-slate-700 px-4 py-2.5 text-xs font-bold transition hover:bg-slate-50 active:scale-95"

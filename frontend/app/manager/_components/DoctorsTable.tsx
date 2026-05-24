@@ -40,7 +40,9 @@ export default function DoctorsTable() {
   return (
     <div className="w-full animate-fade-in">
       <div className="mb-4">
-        <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-blue-600">Đội ngũ y bác sĩ</span>
+        <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-blue-600">
+          Đội ngũ y bác sĩ
+        </span>
         <h3 className="text-sm font-bold text-slate-800 mt-0.5">
           Đo lường số ca hoàn thành & Lượt đánh giá bác sĩ trực ban
         </h3>
@@ -97,11 +99,9 @@ export default function DoctorsTable() {
 
       {selected && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <button
-            type="button"
-            aria-label="Đóng thông tin bác sĩ"
+          <div
+            aria-hidden="true"
             className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
-            onClick={() => setSelected(null)}
           />
 
           <div className="relative w-full max-w-md animate-alert-modal rounded-[1.75rem] border border-slate-200 bg-white p-6 font-sans shadow-[0_24px_70px_rgba(15,23,42,0.22)]">

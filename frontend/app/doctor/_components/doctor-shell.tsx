@@ -119,18 +119,10 @@ export function AppSidebar({
       }
     }
 
-    function handleEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setIsProfileMenuOpen(false);
-      }
-    }
-
     document.addEventListener("mousedown", handleOutsideClick);
-    document.addEventListener("keydown", handleEscape);
 
     return () => {
       document.removeEventListener("mousedown", handleOutsideClick);
-      document.removeEventListener("keydown", handleEscape);
     };
   }, []);
 
@@ -379,11 +371,9 @@ export function AppSidebar({
 
       {isProfilePopupOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <button
-            type="button"
-            aria-label="Đóng popup hồ sơ cá nhân"
+          <div
+            aria-hidden="true"
             className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
-            onClick={() => setIsProfilePopupOpen(false)}
           />
 
           <div className="relative w-full max-w-xl animate-alert-modal rounded-[1.75rem] border border-slate-200 bg-white p-6 font-sans shadow-[0_24px_70px_rgba(15,23,42,0.22)]">
@@ -467,11 +457,9 @@ export function AppSidebar({
 
       {isSettingsPopupOpen ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <button
-            type="button"
-            aria-label="Đóng popup cài đặt"
+          <div
+            aria-hidden="true"
             className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
-            onClick={() => setIsSettingsPopupOpen(false)}
           />
 
           <div className="relative w-full max-w-lg animate-alert-modal rounded-[1.75rem] border border-slate-200 bg-white p-6 font-sans shadow-[0_24px_70px_rgba(15,23,42,0.22)]">

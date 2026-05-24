@@ -239,11 +239,9 @@ export default function ManagerPage() {
 
                 {isSpecModalOpen ? (
                   <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <button
-                      type="button"
-                      aria-label="Đóng popup số lượng chuyên khoa"
+                    <div
+                      aria-hidden="true"
                       className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
-                      onClick={() => setIsSpecModalOpen(false)}
                     />
 
                     <div className="relative w-full max-w-md animate-alert-modal rounded-[1.75rem] border border-slate-200 bg-white p-6 font-sans shadow-[0_24px_70px_rgba(15,23,42,0.22)]">

@@ -1,8 +1,87 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { UserCircle2, Settings2, LogOut, ChevronUp } from "lucide-react";
 import { useRouter } from "next/navigation";
+
+type ProfileForm = {
+  name: string;
+  phone: string;
+  email: string;
+  dob: string;
+};
+
+type ClinicService = {
+  id: number;
+  name: string;
+  price: number;
+  active: boolean;
+};
+
+type ClinicSettings = {
+  shiftStart: string;
+  shiftEnd: string;
+  slotMin: number;
+  services: ClinicService[];
+  holidayDate: string;
+  holidays: string[];
+};
+
+const PROFILE_STORAGE_KEY = "doctor-dropdown-profile";
+const CLINIC_STORAGE_KEY = "doctor-dropdown-clinic";
+const SECURITY_STORAGE_KEY = "doctor-dropdown-security";
+const PREFS_STORAGE_KEY = "doctor-dropdown-prefs";
+
+const DEFAULT_PROFILE: ProfileForm = {
+  name: "ThS. Nguyễn Văn Quân",
+  phone: "+84 912 345 678",
+  email: "quannv@medos.example",
+  dob: "1980-01-01",
+};
+
+const DEFAULT_CLINIC_SETTINGS: ClinicSettings = {
+  shiftStart: "08:00",
+  shiftEnd: "17:00",
+  slotMin: 15,
+  services: [
+    { id: 1, name: "Khám tổng quát", price: 200, active: true },
+    { id: 2, name: "Khám chuyên khoa", price: 350, active: true },
+  ],
+  holidayDate: "",
+  holidays: [],
+};
+
+const DEFAULT_PREFS = {
+  emailNotif: true,
+  smsNotif: false,
+  compactMode: false,
+  language: "vi",
+};
+
+function readLocalStorage<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") {
+    return fallback;
+  }
+
+  try {
+    const storedValue = window.localStorage.getItem(key);
+    if (!storedValue) {
+      return fallback;
+    }
+    return JSON.parse(storedValue) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeLocalStorage<T>(key: string, value: T) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Ignore storage failures.
+  }
+}
 
 export default function DoctorDropdown() {
   const [open, setOpen] = useState(false);
@@ -11,42 +90,25 @@ export default function DoctorDropdown() {
   >(null);
   const router = useRouter();
   const ref = useRef<HTMLDivElement | null>(null);
+  const modalContentRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     function onDoc(e: MouseEvent) {
       if (!ref.current) return;
-      if (!ref.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (!ref.current.contains(target)) {
         setOpen(false);
-        setOpenModal(null);
-      }
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") {
-        setOpen(false);
-        setOpenModal(null);
       }
     }
     document.addEventListener("mousedown", onDoc);
-    document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("mousedown", onDoc);
-      document.removeEventListener("keydown", onKey);
     };
-  }, []);
+  }, [openModal]);
 
-  async function handleLogout() {
-    try {
-      await fetch("/api/auth/logout", {
-        method: "POST",
-        credentials: "include",
-      });
-    } catch (err) {
-      // ignore
-    }
-    try {
-      localStorage.removeItem("authToken");
-    } catch (e) {}
-    router.replace("/login");
+  function handleLogout() {
+    // delegate to the shared handler defined below
+    handleLogoutAction(router);
   }
 
   return (
@@ -82,10 +144,10 @@ export default function DoctorDropdown() {
       {open ? (
         <div className="absolute z-30 rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_20px_55px_rgba(15,23,42,0.18)] bottom-[calc(100%+0.5rem)] right-0 w-56">
           <div className="mb-1 px-2 py-1.5">
-            <p className="truncate text-sm font-semibold text-slate-800">
+            <p className="truncate text-sm font-semibold text-slate-900">
               ThS. Nguyễn Văn Quân
             </p>
-            <p className="truncate text-xs text-slate-500">
+            <p className="truncate text-xs text-slate-600">
               Giám đốc phòng khám
             </p>
           </div>
@@ -94,7 +156,7 @@ export default function DoctorDropdown() {
 
           <button
             type="button"
-            className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900"
+            className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50 hover:text-slate-900"
             onClick={() => {
               setOpen(false);
               setOpenModal("profile");
@@ -106,7 +168,7 @@ export default function DoctorDropdown() {
 
           <button
             type="button"
-            className="mt-1 flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900"
+            className="mt-1 flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50 hover:text-slate-900"
             onClick={() => {
               setOpen(false);
               setOpenModal("settings");
@@ -124,7 +186,7 @@ export default function DoctorDropdown() {
               setOpenModal("logout");
             }}
           >
-            <LogOut className="h-4 w-4" />
+            <LogOut className="h-4 w-4 text-rose-600" />
             Đăng xuất
           </button>
         </div>
@@ -138,95 +200,144 @@ export default function DoctorDropdown() {
         <SettingsModal onClose={() => setOpenModal(null)} />
       ) : null}
 
-      {openModal === "logout" ? (
-        <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
-          <button
-            type="button"
-            aria-label="Đóng"
-            className="absolute inset-0 bg-slate-950/45"
-            onClick={() => setOpenModal(null)}
-          />
-          <div className="relative w-full max-w-sm rounded-xl bg-white p-5 shadow-lg">
-            <button
-              type="button"
-              onClick={() => setOpenModal(null)}
-              className="absolute right-3 top-3 text-slate-400"
-            >
-              ×
-            </button>
-            <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center font-bold text-emerald-700">
-                TN
-              </div>
-              <div>
-                <h3 className="font-semibold">Đăng xuất tài khoản</h3>
-                <div className="text-xs text-slate-500">
-                  ThS. Nguyễn Văn Quân
+      {openModal === "logout"
+        ? createPortal(
+            <div className="fixed inset-0 z-9999 flex items-center justify-center p-4">
+              <div
+                aria-hidden="true"
+                className="absolute inset-0 bg-slate-950/45"
+              />
+              <div
+                ref={modalContentRef}
+                className="relative z-10000 w-full max-w-sm rounded-xl bg-white p-5 shadow-lg"
+              >
+                <button
+                  type="button"
+                  onClick={() => setOpenModal(null)}
+                  className="absolute right-3 top-3 text-slate-400"
+                >
+                  ×
+                </button>
+
+                <div className="flex items-center gap-3">
+                  <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center font-bold text-emerald-700">
+                    TN
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-800">
+                      Đăng xuất tài khoản
+                    </h3>
+                    <div className="text-xs text-slate-500">
+                      ThS. Nguyễn Văn Quân
+                    </div>
+                  </div>
+                </div>
+
+                <p className="mt-3 text-sm text-slate-500">
+                  Bạn có chắc chắn muốn đăng xuất khỏi tài khoản quản lý? Hành
+                  động này sẽ yêu cầu đăng nhập lại.
+                </p>
+
+                <div className="mt-4 text-right">
+                  <button
+                    onClick={() => setOpenModal(null)}
+                    className="mr-2 rounded-md px-3 py-2 text-sm"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleLogout();
+                    }}
+                    className="rounded-md bg-rose-600 px-3 py-2 text-sm text-white"
+                  >
+                    Đăng xuất
+                  </button>
                 </div>
               </div>
-            </div>
-            <p className="mt-3 text-sm text-slate-500">
-              Bạn có chắc chắn muốn đăng xuất khỏi tài khoản quản lý? Hành động
-              này sẽ yêu cầu đăng nhập lại.
-            </p>
-            <div className="mt-4 text-right">
-              <button
-                onClick={() => setOpenModal(null)}
-                className="mr-2 rounded-md px-3 py-2 text-sm"
-              >
-                Hủy
-              </button>
-              <button
-                onClick={() => {
-                  handleLogout();
-                }}
-                className="rounded-md bg-rose-600 px-3 py-2 text-sm text-white"
-              >
-                Đăng xuất
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }
 
+async function handleLogoutAction(router: any) {
+  try {
+    await fetch("/api/auth/logout", {
+      method: "POST",
+      credentials: "include",
+    });
+  } catch (err) {
+    // ignore network errors
+  }
+  try {
+    localStorage.removeItem("authToken");
+  } catch (e) {
+    // ignore
+  }
+  router.replace("/login");
+}
+
 function ProfileModal({ onClose }: { onClose: () => void }) {
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({
-    name: "ThS. Nguyễn Văn Quân",
-    phone: "+84 912 345 678",
-    email: "quannv@medos.example",
-    dob: "1980-01-01",
-  });
+  const [savedForm, setSavedForm] = useState<ProfileForm>(() =>
+    readLocalStorage(PROFILE_STORAGE_KEY, DEFAULT_PROFILE),
+  );
+  const [form, setForm] = useState<ProfileForm>(() =>
+    readLocalStorage(PROFILE_STORAGE_KEY, DEFAULT_PROFILE),
+  );
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
 
-  return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
-      <button
-        type="button"
-        aria-label="Đóng hồ sơ"
-        className="absolute inset-0 bg-slate-950/45"
-        onClick={onClose}
-      />
-      <div className="relative w-full max-w-lg rounded-xl bg-white p-6 shadow-lg">
+  function handleStartEditing() {
+    setForm(savedForm);
+    setEditing(true);
+  }
+
+  function handleCancelEditing() {
+    setForm(savedForm);
+    setEditing(false);
+  }
+
+  function handleSave() {
+    setSavedForm(form);
+    writeLocalStorage(PROFILE_STORAGE_KEY, form);
+    setEditing(false);
+    setSaveNotice("Đã lưu hồ sơ thành công.");
+    window.setTimeout(() => setSaveNotice(null), 2200);
+  }
+
+  return createPortal(
+    <div className="fixed inset-0 z-9999 flex items-center justify-center p-4">
+      <div aria-hidden="true" className="absolute inset-0 bg-slate-950/45" />
+      <div className="relative z-10000 w-full max-w-lg rounded-xl bg-white p-6 text-slate-800 shadow-lg">
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="text-lg font-semibold">Hồ sơ cá nhân</h3>
-            <p className="text-xs text-slate-400 mt-1">
+            <h3 className="text-lg font-bold text-slate-900">Hồ sơ cá nhân</h3>
+            <p className="mt-1 text-sm font-medium text-slate-600">
               Mã nhân sự: MNV-202601 · Chức vụ: Quản lý tổng hợp
             </p>
           </div>
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={() => {
-                setEditing((s) => !s);
+                if (editing) {
+                  handleCancelEditing();
+                  return;
+                }
+                handleStartEditing();
               }}
-              className="rounded-md border px-3 py-1 text-sm"
+              className={`rounded-md px-3 py-1 text-sm font-semibold transition-colors ${editing ? "bg-slate-900 text-white hover:bg-slate-800" : "border border-slate-300 text-slate-800 hover:bg-slate-50"}`}
             >
               {editing ? "Huỷ" : "Chỉnh sửa"}
             </button>
-            <button onClick={onClose} className="text-slate-400">
+            <button
+              type="button"
+              onClick={onClose}
+              className="font-bold text-slate-500"
+            >
               ×
             </button>
           </div>
@@ -237,121 +348,128 @@ function ProfileModal({ onClose }: { onClose: () => void }) {
             <div className="h-28 w-28 rounded-full bg-emerald-100 flex items-center justify-center font-bold text-emerald-700">
               TN
             </div>
-            <div className="mt-2 text-xs text-slate-500">
+            <div className="mt-2 text-sm font-medium text-slate-600">
               Kéo thả để thay avatar
             </div>
           </div>
 
           <div className="col-span-2 grid gap-3">
-            <label className="text-xs text-slate-500">Họ và tên</label>
+            <label className="text-sm font-semibold text-slate-700">
+              Họ và tên
+            </label>
             <input
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
               disabled={!editing}
-              className={`rounded-md border px-3 py-2 ${editing ? "" : "bg-slate-50"}`}
+              readOnly={!editing}
+              className={`rounded-md border px-3 py-2 text-slate-800 placeholder:text-slate-400 ${editing ? "border-slate-400 bg-white font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-100" : "border-slate-200 bg-slate-50 font-medium text-slate-700"}`}
             />
 
-            <label className="text-xs text-slate-500">Số điện thoại</label>
+            <label className="text-sm font-semibold text-slate-700">
+              Số điện thoại
+            </label>
             <input
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
               disabled={!editing}
-              className={`rounded-md border px-3 py-2 ${editing ? "" : "bg-slate-50"}`}
+              readOnly={!editing}
+              className={`rounded-md border px-3 py-2 text-slate-800 placeholder:text-slate-400 ${editing ? "border-slate-400 bg-white font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-100" : "border-slate-200 bg-slate-50 font-medium text-slate-700"}`}
             />
 
-            <label className="text-xs text-slate-500">Email cơ quan</label>
+            <label className="text-sm font-semibold text-slate-700">
+              Email cơ quan
+            </label>
             <input
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               disabled={!editing}
-              className={`rounded-md border px-3 py-2 ${editing ? "" : "bg-slate-50"}`}
+              readOnly={!editing}
+              className={`rounded-md border px-3 py-2 text-slate-800 placeholder:text-slate-400 ${editing ? "border-slate-400 bg-white font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-100" : "border-slate-200 bg-slate-50 font-medium text-slate-700"}`}
             />
 
-            <label className="text-xs text-slate-500">Ngày sinh</label>
+            <label className="text-sm font-semibold text-slate-700">
+              Ngày sinh
+            </label>
             <input
               type="date"
               value={form.dob}
               onChange={(e) => setForm({ ...form, dob: e.target.value })}
               disabled={!editing}
-              className={`rounded-md border px-3 py-2 ${editing ? "" : "bg-slate-50"}`}
+              readOnly={!editing}
+              className={`rounded-md border px-3 py-2 text-slate-800 placeholder:text-slate-400 ${editing ? "border-slate-400 bg-white font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-100" : "border-slate-200 bg-slate-50 font-medium text-slate-700"}`}
             />
 
             {editing ? (
               <div className="mt-2 text-right">
-                <button className="rounded-full bg-blue-600 px-4 py-2 text-white text-sm">
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                >
                   Lưu
                 </button>
+              </div>
+            ) : null}
+
+            {saveNotice ? (
+              <div className="mt-1 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700">
+                {saveNotice}
               </div>
             ) : null}
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
 function SettingsModal({ onClose }: { onClose: () => void }) {
-  const [tab, setTab] = useState<"profile" | "clinic" | "security" | "prefs">(
-    "profile",
-  );
+  const [tab, setTab] = useState<"clinic" | "security" | "prefs">("clinic");
 
-  return (
-    <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
-      <button
-        type="button"
-        aria-label="Đóng cài đặt"
-        className="absolute inset-0 bg-slate-950/45"
-        onClick={onClose}
-      />
-
-      <div className="relative w-full max-w-4xl rounded-xl bg-white p-0 shadow-lg overflow-hidden">
+  return createPortal(
+    <div className="fixed inset-0 z-9999 flex items-center justify-center p-4">
+      <div aria-hidden="true" className="absolute inset-0 bg-slate-950/45" />
+      <div className="relative z-10000 w-full max-w-4xl overflow-hidden rounded-xl bg-white p-0 text-slate-800 shadow-lg">
         <div className="flex">
           <aside className="w-72 border-r border-slate-100 bg-slate-50 p-4">
             <div className="mb-4">
-              <div className="text-sm font-semibold">Cài đặt tài khoản</div>
-              <div className="text-xs text-slate-400">
+              <div className="text-sm font-bold text-slate-900">
+                Cài đặt tài khoản
+              </div>
+              <div className="text-sm font-medium text-slate-600">
                 Quản lý thông tin & cấu hình phòng khám
               </div>
             </div>
-
             <nav className="space-y-1">
               <button
-                onClick={() => setTab("profile")}
-                className={`w-full text-left rounded-md px-3 py-2 ${tab === "profile" ? "bg-white shadow-sm" : "hover:bg-slate-100"}`}
-              >
-                Hồ sơ cá nhân
-              </button>
-              <button
                 onClick={() => setTab("clinic")}
-                className={`w-full text-left rounded-md px-3 py-2 ${tab === "clinic" ? "bg-white shadow-sm" : "hover:bg-slate-100"}`}
+                className={`w-full rounded-md px-3 py-2 text-left font-semibold ${tab === "clinic" ? "bg-white text-slate-900 shadow-sm" : "text-slate-700 hover:bg-slate-100"}`}
               >
                 Cấu hình phòng khám
               </button>
               <button
                 onClick={() => setTab("security")}
-                className={`w-full text-left rounded-md px-3 py-2 ${tab === "security" ? "bg-white shadow-sm" : "hover:bg-slate-100"}`}
+                className={`w-full rounded-md px-3 py-2 text-left font-semibold ${tab === "security" ? "bg-white text-slate-900 shadow-sm" : "text-slate-700 hover:bg-slate-100"}`}
               >
                 Phân quyền & Bảo mật
               </button>
               <button
                 onClick={() => setTab("prefs")}
-                className={`w-full text-left rounded-md px-3 py-2 ${tab === "prefs" ? "bg-white shadow-sm" : "hover:bg-slate-100"}`}
+                className={`w-full rounded-md px-3 py-2 text-left font-semibold ${tab === "prefs" ? "bg-white text-slate-900 shadow-sm" : "text-slate-700 hover:bg-slate-100"}`}
               >
                 Tùy chọn hệ thống
               </button>
             </nav>
           </aside>
-
           <div className="flex-1 p-6">
-            {tab === "profile" && <ProfileTab />}
             {tab === "clinic" && <ClinicTab />}
             {tab === "security" && <SecurityTab />}
             {tab === "prefs" && <PrefsTab />}
-
             <div className="mt-6 text-right">
               <button
                 onClick={onClose}
-                className="rounded-full bg-slate-100 px-4 py-2 text-sm mr-2"
+                className="mr-2 rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-800"
               >
                 Đóng
               </button>
@@ -359,7 +477,8 @@ function SettingsModal({ onClose }: { onClose: () => void }) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -375,15 +494,15 @@ function ProfileTab() {
     <div>
       <div className="flex items-start justify-between">
         <div>
-          <h4 className="text-lg font-semibold">Hồ sơ cá nhân</h4>
-          <p className="text-xs text-slate-400">
+          <h4 className="text-lg font-bold text-slate-900">Hồ sơ cá nhân</h4>
+          <p className="text-sm font-medium text-slate-600">
             Quản lý thông tin tài khoản của bạn
           </p>
         </div>
         <div>
           <button
             onClick={() => setEditing((s) => !s)}
-            className="rounded-md border px-3 py-1 text-sm"
+            className={`rounded-md px-3 py-1 text-sm font-semibold ${editing ? "bg-slate-900 text-white" : "border border-slate-300 text-slate-800"}`}
           >
             {editing ? "Huỷ" : "Chỉnh sửa"}
           </button>
@@ -392,51 +511,63 @@ function ProfileTab() {
 
       <div className="mt-4 grid grid-cols-3 gap-4 items-start">
         <div className="col-span-1">
-          <div className="h-28 w-28 rounded-full bg-emerald-100 flex items-center justify-center font-bold text-emerald-700">
+          <div className="h-28 w-28 rounded-full bg-emerald-100 flex items-center justify-center text-lg font-bold text-emerald-700">
             TN
           </div>
-          <div className="mt-2 text-xs text-slate-500">
+          <div className="mt-2 text-sm font-medium text-slate-600">
             Kéo thả để thay avatar
           </div>
         </div>
 
         <div className="col-span-2 grid gap-3">
-          <label className="text-xs text-slate-500">Họ và tên</label>
+          <label className="text-sm font-semibold text-slate-700">
+            Họ và tên
+          </label>
           <input
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             disabled={!editing}
-            className={`rounded-md border px-3 py-2 ${editing ? "" : "bg-slate-50"}`}
+            readOnly={!editing}
+            className={`rounded-md border px-3 py-2 text-slate-800 placeholder:text-slate-400 ${editing ? "border-slate-400 bg-white font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-100" : "border-slate-200 bg-slate-50 font-medium text-slate-700"}`}
           />
 
-          <label className="text-xs text-slate-500">Số điện thoại</label>
+          <label className="text-sm font-semibold text-slate-700">
+            Số điện thoại
+          </label>
           <input
             value={form.phone}
             onChange={(e) => setForm({ ...form, phone: e.target.value })}
             disabled={!editing}
-            className={`rounded-md border px-3 py-2 ${editing ? "" : "bg-slate-50"}`}
+            readOnly={!editing}
+            className={`rounded-md border px-3 py-2 text-slate-800 placeholder:text-slate-400 ${editing ? "border-slate-400 bg-white font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-100" : "border-slate-200 bg-slate-50 font-medium text-slate-700"}`}
           />
 
-          <label className="text-xs text-slate-500">Email cơ quan</label>
+          <label className="text-sm font-semibold text-slate-700">
+            Email cơ quan
+          </label>
           <input
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
             disabled={!editing}
-            className={`rounded-md border px-3 py-2 ${editing ? "" : "bg-slate-50"}`}
+            readOnly={!editing}
+            className={`rounded-md border px-3 py-2 text-slate-800 placeholder:text-slate-400 ${editing ? "border-slate-400 bg-white font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-100" : "border-slate-200 bg-slate-50 font-medium text-slate-700"}`}
           />
 
-          <label className="text-xs text-slate-500">Ngày sinh</label>
+          <label className="text-sm font-semibold text-slate-700">
+            Ngày sinh
+          </label>
           <input
             type="date"
             value={form.dob}
             onChange={(e) => setForm({ ...form, dob: e.target.value })}
             disabled={!editing}
-            className={`rounded-md border px-3 py-2 ${editing ? "" : "bg-slate-50"}`}
+            readOnly={!editing}
+            className={`rounded-md border px-3 py-2 text-slate-800 placeholder:text-slate-400 ${editing ? "border-slate-400 bg-white font-medium focus:border-blue-500 focus:ring-2 focus:ring-blue-100" : "border-slate-200 bg-slate-50 font-medium text-slate-700"}`}
           />
 
           {editing ? (
             <div className="mt-2 text-right">
-              <button className="rounded-full bg-blue-600 px-4 py-2 text-white text-sm">
+              <button className="rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
                 Lưu
               </button>
             </div>
@@ -448,13 +579,36 @@ function ProfileTab() {
 }
 
 function ClinicTab() {
-  const [shiftStart, setShiftStart] = useState("08:00");
-  const [shiftEnd, setShiftEnd] = useState("17:00");
-  const [slotMin, setSlotMin] = useState(15);
-  const [services, setServices] = useState([
-    { id: 1, name: "Khám tổng quát", price: 200, active: true },
-    { id: 2, name: "Khám chuyên khoa", price: 350, active: true },
-  ]);
+  const [settings, setSettings] = useState<ClinicSettings>(() =>
+    readLocalStorage(CLINIC_STORAGE_KEY, DEFAULT_CLINIC_SETTINGS),
+  );
+  const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
+
+  function handleSaveClinicSettings() {
+    writeLocalStorage(CLINIC_STORAGE_KEY, settings);
+    setSavedAt(
+      new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    );
+    setSaveNotice("Đã lưu thay đổi phòng khám.");
+    window.setTimeout(() => setSaveNotice(null), 2200);
+  }
+
+  function handleAddHolidayDate() {
+    if (!settings.holidayDate) {
+      return;
+    }
+
+    const nextHolidays = settings.holidays.includes(settings.holidayDate)
+      ? settings.holidays
+      : [...settings.holidays, settings.holidayDate];
+
+    setSettings({
+      ...settings,
+      holidays: nextHolidays,
+      holidayDate: "",
+    });
+  }
 
   return (
     <div>
@@ -471,8 +625,10 @@ function ClinicTab() {
               <div className="text-xs text-slate-400">Giờ bắt đầu</div>
               <input
                 type="time"
-                value={shiftStart}
-                onChange={(e) => setShiftStart(e.target.value)}
+                value={settings.shiftStart}
+                onChange={(e) =>
+                  setSettings({ ...settings, shiftStart: e.target.value })
+                }
                 className="rounded-md border px-3 py-2"
               />
             </div>
@@ -480,8 +636,10 @@ function ClinicTab() {
               <div className="text-xs text-slate-400">Giờ kết thúc</div>
               <input
                 type="time"
-                value={shiftEnd}
-                onChange={(e) => setShiftEnd(e.target.value)}
+                value={settings.shiftEnd}
+                onChange={(e) =>
+                  setSettings({ ...settings, shiftEnd: e.target.value })
+                }
                 className="rounded-md border px-3 py-2"
               />
             </div>
@@ -491,8 +649,10 @@ function ClinicTab() {
               </div>
               <input
                 type="number"
-                value={slotMin}
-                onChange={(e) => setSlotMin(Number(e.target.value))}
+                value={settings.slotMin}
+                onChange={(e) =>
+                  setSettings({ ...settings, slotMin: Number(e.target.value) })
+                }
                 className="rounded-md border px-3 py-2 w-28"
               />
             </div>
@@ -502,7 +662,7 @@ function ClinicTab() {
         <div className="rounded-md border p-4">
           <div className="font-medium">Dịch vụ & Bảng giá</div>
           <div className="mt-3 space-y-2">
-            {services.map((s) => (
+            {settings.services.map((s) => (
               <div
                 key={s.id}
                 className="flex items-center justify-between rounded p-2 border"
@@ -519,11 +679,12 @@ function ClinicTab() {
                     type="checkbox"
                     checked={s.active}
                     onChange={() =>
-                      setServices(
-                        services.map((x) =>
+                      setSettings({
+                        ...settings,
+                        services: settings.services.map((x) =>
                           x.id === s.id ? { ...x, active: !x.active } : x,
                         ),
-                      )
+                      })
                     }
                   />
                 </div>
@@ -531,10 +692,25 @@ function ClinicTab() {
             ))}
           </div>
           <div className="mt-3 text-right">
-            <button className="rounded-md bg-blue-600 px-3 py-2 text-sm text-white">
+            <button
+              type="button"
+              onClick={handleSaveClinicSettings}
+              className="rounded-md bg-blue-600 px-3 py-2 text-sm text-white"
+            >
               Lưu thay đổi
             </button>
           </div>
+          {savedAt ? (
+            <div className="mt-2 text-right text-xs text-slate-400">
+              Đã lưu lúc {savedAt}
+            </div>
+          ) : null}
+
+          {saveNotice ? (
+            <div className="mt-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-medium text-emerald-700">
+              {saveNotice}
+            </div>
+          ) : null}
         </div>
 
         <div className="rounded-md border p-4">
@@ -543,11 +719,34 @@ function ClinicTab() {
             Chọn ngày nghỉ để khóa lịch đặt trực tuyến
           </div>
           <div className="mt-3">
-            <input type="date" className="rounded-md border px-3 py-2" />
-            <button className="ml-2 rounded-md border px-3 py-2 text-sm">
+            <input
+              type="date"
+              value={settings.holidayDate}
+              onChange={(e) =>
+                setSettings({ ...settings, holidayDate: e.target.value })
+              }
+              className="rounded-md border px-3 py-2"
+            />
+            <button
+              type="button"
+              onClick={handleAddHolidayDate}
+              className="ml-2 rounded-md border px-3 py-2 text-sm"
+            >
               Thêm
             </button>
           </div>
+          {settings.holidays.length ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {settings.holidays.map((holiday) => (
+                <span
+                  key={holiday}
+                  className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700"
+                >
+                  {holiday}
+                </span>
+              ))}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
@@ -558,6 +757,8 @@ function SecurityTab() {
   const [oldPass, setOldPass] = useState("");
   const [newPass, setNewPass] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [statusTone, setStatusTone] = useState<"success" | "error">("success");
 
   function passwordStrength(p: string) {
     let score = 0;
@@ -582,6 +783,35 @@ function SecurityTab() {
     { id: 2, name: "Tiếp tân B", perms: ["Quản lý lịch"] },
     { id: 3, name: "Chuyên gia C", perms: ["Xem báo cáo"] },
   ];
+
+  function handleChangePassword() {
+    if (!oldPass || !newPass || !confirm) {
+      setStatusTone("error");
+      setStatusMessage("Vui lòng nhập đủ thông tin mật khẩu.");
+      return;
+    }
+
+    if (newPass !== confirm) {
+      setStatusTone("error");
+      setStatusMessage("Mật khẩu mới và xác nhận mật khẩu không khớp.");
+      return;
+    }
+
+    if (strength < 3) {
+      setStatusTone("error");
+      setStatusMessage("Mật khẩu mới cần mạnh hơn.");
+      return;
+    }
+
+    writeLocalStorage(SECURITY_STORAGE_KEY, {
+      updatedAt: new Date().toISOString(),
+    });
+    setOldPass("");
+    setNewPass("");
+    setConfirm("");
+    setStatusTone("success");
+    setStatusMessage("Đã đổi mật khẩu.");
+  }
 
   return (
     <div>
@@ -622,10 +852,21 @@ function SecurityTab() {
               className="rounded-md border px-3 py-2"
             />
             <div className="mt-2 text-right">
-              <button className="rounded-md bg-blue-600 px-3 py-2 text-sm text-white">
+              <button
+                type="button"
+                onClick={handleChangePassword}
+                className="rounded-md bg-blue-600 px-3 py-2 text-sm text-white"
+              >
                 Đổi mật khẩu
               </button>
             </div>
+            {statusMessage ? (
+              <div
+                className={`mt-2 rounded-md border px-3 py-2 text-xs font-medium ${statusTone === "success" ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-rose-200 bg-rose-50 text-rose-700"}`}
+              >
+                {statusMessage}
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -659,60 +900,65 @@ function SecurityTab() {
 
 function PrefsTab() {
   const [emailNotif, setEmailNotif] = useState(true);
-  const [appNotif, setAppNotif] = useState(true);
-  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [smsNotif, setSmsNotif] = useState(false);
+  const [compactMode, setCompactMode] = useState(false);
+  const [language, setLanguage] = useState("vi");
 
   return (
     <div>
       <h4 className="text-lg font-semibold">Tùy chọn hệ thống</h4>
-      <p className="text-xs text-slate-400">Cá nhân hóa trải nghiệm</p>
+      <p className="text-xs text-slate-400">
+        Điều chỉnh thông báo, giao diện và ngôn ngữ hiển thị
+      </p>
 
-      <div className="mt-4 space-y-4">
-        <div className="rounded-md border p-4 flex items-center justify-between">
-          <div>
-            <div className="font-medium">Thông báo</div>
-            <div className="text-xs text-slate-400">
-              Nhận thông báo khi có lịch mới, hủy khẩn, báo cáo
-            </div>
-          </div>
-          <div className="space-y-2">
-            <label className="flex items-center gap-2">
+      <div className="mt-4 grid gap-4">
+        <div className="rounded-md border p-4">
+          <div className="font-medium">Thông báo</div>
+          <div className="mt-3 space-y-3">
+            <label className="flex items-center justify-between gap-4 rounded-md border px-3 py-2">
+              <span className="text-sm text-slate-700">
+                Thông báo qua email
+              </span>
               <input
                 type="checkbox"
                 checked={emailNotif}
-                onChange={() => setEmailNotif((s) => !s)}
-              />{" "}
-              Email
+                onChange={(e) => setEmailNotif(e.target.checked)}
+              />
             </label>
-            <label className="flex items-center gap-2">
+            <label className="flex items-center justify-between gap-4 rounded-md border px-3 py-2">
+              <span className="text-sm text-slate-700">Thông báo qua SMS</span>
               <input
                 type="checkbox"
-                checked={appNotif}
-                onChange={() => setAppNotif((s) => !s)}
-              />{" "}
-              App
+                checked={smsNotif}
+                onChange={(e) => setSmsNotif(e.target.checked)}
+              />
             </label>
           </div>
         </div>
 
-        <div className="rounded-md border p-4 flex items-center justify-between">
-          <div>
-            <div className="font-medium">Giao diện</div>
-            <div className="text-xs text-slate-400">Chọn chế độ hiển thị</div>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setTheme("light")}
-              className={`px-3 py-1 rounded ${theme === "light" ? "bg-slate-200" : "border"}`}
-            >
-              Sáng
-            </button>
-            <button
-              onClick={() => setTheme("dark")}
-              className={`px-3 py-1 rounded ${theme === "dark" ? "bg-slate-800 text-white" : "border"}`}
-            >
-              Tối
-            </button>
+        <div className="rounded-md border p-4">
+          <div className="font-medium">Giao diện</div>
+          <div className="mt-3 space-y-3">
+            <label className="flex items-center justify-between gap-4 rounded-md border px-3 py-2">
+              <span className="text-sm text-slate-700">Chế độ gọn</span>
+              <input
+                type="checkbox"
+                checked={compactMode}
+                onChange={(e) => setCompactMode(e.target.checked)}
+              />
+            </label>
+
+            <div>
+              <div className="mb-1 text-xs text-slate-500">Ngôn ngữ</div>
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                className="rounded-md border px-3 py-2"
+              >
+                <option value="vi">Tiếng Việt</option>
+                <option value="en">English</option>
+              </select>
+            </div>
           </div>
         </div>
       </div>

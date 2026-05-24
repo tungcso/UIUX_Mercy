@@ -26,15 +26,15 @@ export default function Sidebar({
     <aside className="hidden shrink-0 border-r border-slate-200 bg-white py-4 shadow-[0_0_35px_rgba(15,23,42,0.03)] lg:flex lg:flex-col lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] lg:self-start w-64 px-4">
       <div className="h-full flex flex-col">
         <div className="mb-4 flex items-start gap-3 px-2">
-          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-[0_10px_24px_rgba(16,185,129,0.25)]">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-400 text-white shadow-[0_10px_24px_rgba(16,185,129,0.18)]">
             M
           </div>
           <div>
-            <div className="text-xs font-semibold leading-none text-slate-900">
-              Bảng điều hành
+            <div className="text-sm font-semibold leading-none text-slate-900">
+              MedOS.io
             </div>
             <div className="text-[11px] font-medium text-slate-400">
-              MedOS Clinic
+              Hệ Thống Điều Hành
             </div>
           </div>
         </div>
