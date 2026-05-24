@@ -38,9 +38,12 @@ export default function DoctorsTable() {
   const [selected, setSelected] = useState<Doctor | null>(null);
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg p-4">
-      <div className="text-xs font-bold uppercase tracking-[0.18em] text-slate-400 mb-3">
-        ĐO LƯỜNG SỐ CA HOÀN THÀNH & LƯỢT ĐÁNH GIÁ BÁC SĨ
+    <div className="w-full animate-fade-in">
+      <div className="mb-4">
+        <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-blue-600">Đội ngũ y bác sĩ</span>
+        <h3 className="text-sm font-bold text-slate-800 mt-0.5">
+          Đo lường số ca hoàn thành & Lượt đánh giá bác sĩ trực ban
+        </h3>
       </div>
 
       <div className="overflow-x-auto">

@@ -28,7 +28,13 @@ export default function PieCard({ onOpen }: Props) {
   let offset = 0;
 
   return (
-    <div className="w-full bg-white rounded-2xl shadow-lg p-4">
+    <div className="w-full h-full flex flex-col justify-between">
+      <div className="mb-4">
+        <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-blue-600">Tải lượng khoa chuyên</span>
+        <h3 className="text-sm font-bold text-slate-800 mt-0.5">
+          Tỷ lệ cuộc hẹn theo Chuyên Khoa
+        </h3>
+      </div>
       <div className="flex flex-col items-center gap-4">
         <div
           className="flex items-center justify-center cursor-pointer"
