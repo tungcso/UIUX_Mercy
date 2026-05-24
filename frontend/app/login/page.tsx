@@ -60,6 +60,11 @@ export default function LoginPage() {
       return;
     }
 
+    if (role === "Quản lí phòng khám") {
+      router.push("/manager?loginSuccess=1&role=manager");
+      return;
+    }
+
     showSuccessNotification("Đăng nhập thành công");
   };
 

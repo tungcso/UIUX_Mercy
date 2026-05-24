@@ -1,0 +1,60 @@
+.shell {
+  display: flex;
+  min-height: 100vh;
+  background: #f6f8fa;
+  color: #0f172a;
+}
+
+.main {
+  flex: 1;
+  padding: 32px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.largeCard,
+.sideCard,
+.tableCard {
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+  padding: 18px;
+  border: 1px solid #eef2f7;
+}
+
+.largeCard {
+  min-height: 240px;
+}
+
+.sideCard {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tableCard {
+  margin-top: 20px;
+  padding: 20px;
+}
+
+.muted {
+  color: #6b7280;
+}
+
+.accentBtn {
+  background: linear-gradient(90deg, #10b981, #059669);
+  color: #fff;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 8px;
+}
+
+.cardTitle {
+  color: #0f172a;
+  font-weight: 700;
+}
