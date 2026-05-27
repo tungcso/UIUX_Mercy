@@ -14,7 +14,7 @@ export default function LoginPage() {
   const [notification, setNotification] = useState<string | null>(null);
   const notificationTimerRef = useRef<number | null>(null);
 
-  const roleOptions = ["Bệnh nhân", "Bác sĩ", "Quản lí phòng khám"];
+  const roleOptions = ["Bệnh nhân", "Bác sĩ", "Quản lí phòng khám", "Chuyên gia"];
 
   const showSuccessNotification = (message: string) => {
     if (notificationTimerRef.current) {
@@ -67,6 +67,11 @@ export default function LoginPage() {
 
     if (role === "Quản lí phòng khám") {
       router.push("/manager?loginSuccess=1&role=manager");
+      return;
+    }
+
+    if (role === "Chuyên gia") {
+      router.push("/specialist?loginSuccess=1&role=specialist");
       return;
     }
 
