@@ -55,6 +55,11 @@ export default function LoginPage() {
     setIsRoleSelectionOpen(false);
     console.log(`Selected role: ${role}`);
 
+    if (role === "Bệnh nhân") {
+      router.push("/patient?loginSuccess=1&role=patient");
+      return;
+    }
+
     if (role === "Bác sĩ") {
       router.push("/doctor?loginSuccess=1&role=doctor");
       return;
