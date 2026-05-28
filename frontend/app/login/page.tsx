@@ -14,7 +14,15 @@ export default function LoginPage() {
   const [notification, setNotification] = useState<string | null>(null);
   const notificationTimerRef = useRef<number | null>(null);
 
-  const roleOptions = ["Bệnh nhân", "Bác sĩ", "Quản lí phòng khám", "Chuyên gia"];
+  const demoEmail = "bacsigoiy@medos.vn";
+  const demoPassword = "MedOS@12345";
+
+  const roleOptions = [
+    "Bệnh nhân",
+    "Bác sĩ",
+    "Quản lí phòng khám",
+    "Chuyên gia",
+  ];
 
   const showSuccessNotification = (message: string) => {
     if (notificationTimerRef.current) {
@@ -122,6 +130,7 @@ export default function LoginPage() {
                 </div>
                 <input
                   type="email"
+                  defaultValue={demoEmail}
                   className="block w-full rounded-xl border border-slate-200 bg-white/80 pl-10 pr-3 py-3 text-sm text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/15"
                   placeholder="bacsigoiy@medos.vn"
                   required
@@ -139,6 +148,7 @@ export default function LoginPage() {
                 </div>
                 <input
                   type={showPassword ? "text" : "password"}
+                  defaultValue={demoPassword}
                   className="block w-full rounded-xl border border-slate-200 bg-white/80 pl-10 pr-12 py-3 text-sm text-slate-900 outline-none transition-all placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/15"
                   placeholder="••••••••"
                   required
