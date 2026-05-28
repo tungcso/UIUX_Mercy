@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import {
   Bot,
   CalendarCheck2,
@@ -17,6 +17,8 @@ import {
 } from "lucide-react";
 import ConsultChatRoom from "./_components/consult-chat-room";
 import type { ConsultChatMessage } from "./_components/consult-chat-room";
+
+export const dynamic = "force-dynamic";
 
 type OnlineDoctor = {
   id: string;
@@ -155,6 +157,14 @@ const doctorConsultMessages = [
 ];
 
 export default function PatientConsultPage() {
+  return (
+    <Suspense fallback={null}>
+      <PatientConsultPageContent />
+    </Suspense>
+  );
+}
+
+function PatientConsultPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isSearchPanelOpen, setIsSearchPanelOpen] = useState(false);

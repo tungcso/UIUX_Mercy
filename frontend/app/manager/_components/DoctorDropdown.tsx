@@ -265,14 +265,6 @@ export default function DoctorDropdown() {
 
 async function handleLogoutAction(router: any) {
   try {
-    await fetch("/api/auth/logout", {
-      method: "POST",
-      credentials: "include",
-    });
-  } catch (err) {
-    // ignore network errors
-  }
-  try {
     localStorage.removeItem("authToken");
   } catch (e) {
     // ignore

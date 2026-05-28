@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Sidebar from "./_components/Sidebar";
 import Header from "./_components/Header";
@@ -16,7 +16,17 @@ import ChatbotOperationsDashboard from "./_components/ChatbotOperationsDashboard
 
 type ManagerSection = "overview" | "crm" | "hr" | "chatbot";
 
+export const dynamic = "force-dynamic";
+
 export default function ManagerPage() {
+  return (
+    <Suspense fallback={null}>
+      <ManagerPageContent />
+    </Suspense>
+  );
+}
+
+function ManagerPageContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();

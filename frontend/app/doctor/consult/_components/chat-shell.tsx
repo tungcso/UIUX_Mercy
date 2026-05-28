@@ -84,8 +84,8 @@ export default function ChatShell({ patients = [] }: { patients?: Patient[] }) {
     ],
   };
 
-  const [messages, setMessages] = useState(
-    () => messagesByPatient[selected] ?? [],
+  const [messages, setMessages] = useState(() =>
+    selected ? (messagesByPatient[selected] ?? []) : [],
   );
 
   const [messageInput, setMessageInput] = useState("");
@@ -104,7 +104,7 @@ export default function ChatShell({ patients = [] }: { patients?: Patient[] }) {
 
   // Update messages when selected patient changes
   React.useEffect(() => {
-    setMessages(messagesByPatient[selected] ?? []);
+    setMessages(selected ? (messagesByPatient[selected] ?? []) : []);
     setMessageInput("");
     setAiOpen(false);
   }, [selected]);

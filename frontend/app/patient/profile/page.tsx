@@ -84,9 +84,7 @@ export default function PatientProfilePage() {
     trustedDeviceName: "iPhone 15 Pro · Hà Nội",
     deviceCode: "MED-24-9182",
   });
-  const noticeTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(
-    null,
-  );
+  const noticeTimerRef = useRef<number | null>(null);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
 
   const openAppointments = () => {

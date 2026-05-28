@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactElement } from "react";
 import { useState } from "react";
 import {
   CornerDownLeft,
@@ -30,7 +31,7 @@ type KpiView = {
   value: number;
   delta: number;
   spark: number[];
-  icon: JSX.Element;
+  icon: ReactElement;
   bg: string;
   sparkStroke: string;
   unit: string;
@@ -55,7 +56,7 @@ type DashboardConfig = {
     id: string;
     label: string;
     unit: string;
-    icon: JSX.Element;
+    icon: ReactElement;
     bg: string;
     sparkStroke: string;
     current: { value: number; delta: number; spark: number[] };
@@ -933,7 +934,7 @@ export default function CrmEconomyDashboard() {
               Thông tin đồng bộ bệnh nhân
             </h3>
             <div className="mt-2 text-lg font-bold text-slate-900">
-              {selected.patient ?? selected.name}
+              {selected.patient}
             </div>
             <div className="mt-3 grid grid-cols-2 gap-4">
               <div className="rounded-lg border border-slate-100 p-3">

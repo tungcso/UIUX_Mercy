@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { Suspense, useState, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Activity,
@@ -24,6 +24,8 @@ import {
   DoctorOfflineNotice,
   useDoctorAvailability,
 } from "../_components/doctor-availability-context";
+
+export const dynamic = "force-dynamic";
 
 // Patient data structure
 type Patient = {
@@ -150,6 +152,14 @@ const patientsData: Record<string, Patient> = {
 };
 
 export default function PatientDetailPage() {
+  return (
+    <Suspense fallback={null}>
+      <PatientDetailContent />
+    </Suspense>
+  );
+}
+
+function PatientDetailContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { isAcceptingPatients, toggleAcceptingPatients } =
