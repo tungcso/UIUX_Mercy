@@ -852,58 +852,6 @@ export default function PatientAppointmentsPage() {
           </div>
         </section>
 
-        <nav className="fixed bottom-0 left-1/2 z-30 w-full max-w-97.5 -translate-x-1/2 border-t border-[#dde3ed] bg-white/95 px-2.5 py-1.5 backdrop-blur">
-          <ul className="grid grid-cols-4 text-center">
-            <li>
-              <Link
-                href="/patient"
-                className="flex flex-col items-center gap-1 text-[#95a1b2]"
-              >
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl">
-                  <Stethoscope className="h-4.5 w-4.5" />
-                </span>
-                <span className="text-xs">Trang chủ</span>
-              </Link>
-            </li>
-
-            <li>
-              <Link
-                href="/patient/appointments"
-                className="flex flex-col items-center gap-1 text-[#2f66dc]"
-              >
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#e8f0ff]">
-                  <CalendarCheck2 className="h-4.5 w-4.5" />
-                </span>
-                <span className="text-xs font-semibold">Lịch khám</span>
-              </Link>
-            </li>
-
-            <li>
-              <Link
-                href="/patient/consult"
-                className="flex flex-col items-center gap-1 text-[#95a1b2]"
-              >
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl">
-                  <MessageCircle className="h-4.5 w-4.5" />
-                </span>
-                <span className="text-xs">Tư vấn</span>
-              </Link>
-            </li>
-
-            <li>
-              <Link
-                href="/patient/profile"
-                className="flex flex-col items-center gap-1 text-[#95a1b2]"
-              >
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl">
-                  <UserRound className="h-4.5 w-4.5" />
-                </span>
-                <span className="text-xs">Cá nhân</span>
-              </Link>
-            </li>
-          </ul>
-        </nav>
-
         {selectedAppointment ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
             <button
