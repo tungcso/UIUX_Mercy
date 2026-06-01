@@ -1,23 +1,32 @@
 "use client";
 
-import React from "react";
 import MessageBubble from "./MessageBubble";
+import type { ConsultAction, ConsultMessage } from "./consult-case-data";
 
 export default function ConversationList({
-  messages = [] as any[],
+  messages = [],
+  onQuickReply,
+  onAction,
 }: {
-  messages?: any[];
+  messages?: ConsultMessage[];
+  onQuickReply?: (value: string) => void;
+  onAction?: (action: ConsultAction, message: ConsultMessage) => void;
 }) {
+  const emergencyIndex = messages.findIndex(
+    (message) => message.kind === "emergency",
+  );
+  const visibleMessages =
+    emergencyIndex >= 0 ? messages.slice(0, emergencyIndex + 1) : messages;
+
   return (
     <div className="px-4 pb-4 pt-4">
       <div className="space-y-3">
-        {messages.map((m: any) => (
+        {visibleMessages.map((message) => (
           <MessageBubble
-            key={m.id}
-            role={m.role}
-            text={m.text}
-            time={m.time}
-            variant={m.tone}
+            key={message.id}
+            message={message}
+            onQuickReply={onQuickReply}
+            onAction={onAction}
           />
         ))}
       </div>

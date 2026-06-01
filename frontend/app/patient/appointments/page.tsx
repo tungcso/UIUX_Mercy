@@ -1,1235 +1,1451 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
 import {
+  useEffect,
+  useMemo,
+  useState,
+  type ComponentType,
+  type ReactNode,
+} from "react";
+import {
+  Bot,
   CalendarCheck2,
   CalendarDays,
+  ChevronRight,
   Clock3,
-  Camera,
-  QrCode,
-  MapPin,
+  HeartPulse,
   MessageCircle,
-  Mic,
-  PhoneOff,
   Plus,
   Stethoscope,
-  UserRound,
   Video,
+  X,
 } from "lucide-react";
-import BookingModal from "../consult/_components/booking-modal";
+import {
+  consultCases,
+  type ConsultCase,
+} from "../consult/_components/consult-case-data";
 
-type AppointmentStatus = "upcoming" | "history";
+type AppointmentStatus =
+  | "ai-recommended"
+  | "draft"
+  | "booked"
+  | "upcoming"
+  | "in-progress"
+  | "completed"
+  | "follow-up";
 
-type AppointmentItem = {
+type AppointmentMode = "Online" | "Offline";
+type OnlineConsultType = "Chat" | "Gọi thoại" | "Video call";
+type AppointmentTab = "booking" | "doctor";
+
+type Appointment = {
   id: string;
-  code: string;
   doctorName: string;
   specialty: string;
-  mode: string;
-  dateLabel: string;
-  timeLabel: string;
-  location?: string;
+  date: string;
+  time: string;
+  mode: AppointmentMode;
+  reason: string;
+  aiSummary: string[];
+  risk: "Thấp" | "Trung bình" | "Cao";
   status: AppointmentStatus;
-  statusLabel: string;
-  statusTone: string;
-  avatar: string;
-  summary: string;
-  detail: string;
-  checkinQrCode?: string;
 };
 
-type CreatedBooking = {
+type Recommendation = {
   id: string;
-  code: string;
+  title: string;
+  specialty: string;
+  timeframe: string;
+  tone: "danger" | "warning";
+  summary: string[];
+};
+
+type OnlineConsult = {
+  id: string;
   doctorName: string;
   specialty: string;
-  mode: "direct" | "online";
-  dateLabel: string;
-  timeLabel: string;
-  avatar: string;
-  price?: string;
-  location?: string;
-  checkinQrCode?: string;
-  summary: string;
-  detail: string;
+  type: OnlineConsultType;
+  date: string;
+  status: "Đang kết nối" | "Hoàn thành";
 };
 
-const CREATED_BOOKINGS_STORAGE_KEY = "mercy-created-bookings";
-const QR_PATTERN = [
-  "101111001",
-  "100000001",
-  "101110101",
-  "101110101",
-  "101110101",
-  "100000001",
-  "101111001",
-  "100010001",
-  "111111111",
-];
+type Doctor = {
+  id: string;
+  name: string;
+  specialty: string;
+  rating: string;
+  consults: string;
+  availability: string;
+  lastConsult?: string;
+};
 
-const BASE_APPOINTMENTS: AppointmentItem[] = [
+const initialAppointments: Appointment[] = [
   {
-    id: "upcoming-1",
-    code: "#KB8821",
-    doctorName: "ThS. BS. Trần Tâm",
+    id: "upcoming-cardio",
+    doctorName: "BS Nguyễn Văn A",
     specialty: "Tim mạch",
-    mode: "Tư vấn Online",
-    dateLabel: "Hôm nay, 24/05",
-    timeLabel: "14:30 - 15:00",
+    date: "24/07/2025",
+    time: "15:30",
+    mode: "Online",
+    reason: "Từ consultation: Đau ngực kéo dài",
+    aiSummary: ["Đau ngực 3 ngày", "Không sốt", "Có khó thở nhẹ", "Nguy cơ trung bình"],
+    risk: "Trung bình",
     status: "upcoming",
-    statusLabel: "Sắp diễn ra",
-    statusTone: "bg-[#ffeaea] text-[#ef4444]",
-    avatar: "👨🏿",
-    summary: "Lịch tư vấn online đang chờ bạn vào phòng tư vấn.",
-    detail:
-      "Đây là lịch tư vấn online sắp diễn ra với ThS. BS. Trần Tâm. Bạn có thể vào phòng tư vấn trước 5 phút, kiểm tra camera, micro và chuẩn bị câu hỏi cần trao đổi.",
   },
   {
-    id: "history-1",
-    code: "#KB8904",
-    doctorName: "PGS. TS. Lê Văn B",
-    specialty: "Nội thần kinh",
-    mode: "Trực tiếp",
-    dateLabel: "T5, 28/05/2026",
-    timeLabel: "09:00 - 09:30",
-    location: "Phòng 204, Tầng 2, Tòa nhà A - Phòng khám Đa khoa",
-    status: "history",
-    statusLabel: "Đã xác nhận",
-    statusTone: "bg-[#e8f9ef] text-[#15803d]",
-    avatar: "👩🏻‍⚕️",
-    summary:
-      "Lịch khám trực tiếp đã được xác nhận và sẵn sàng đổi lịch nếu cần.",
-    detail:
-      "Lịch khám trực tiếp đã được xác nhận. Khi đến khám, bạn nên có mặt trước 15 phút, mang theo giấy tờ liên quan và đến đúng phòng đã ghi trong lịch hẹn.",
-    checkinQrCode: "#KB8904",
-  },
-  {
-    id: "history-2",
-    code: "#KB8740",
-    doctorName: "BS. CKI Nguyễn Thị C",
-    specialty: "Nhi khoa",
-    mode: "Tái khám",
-    dateLabel: "T2, 20/05/2026",
-    timeLabel: "08:15 - 08:45",
-    location: "Khoa Nhi - Tầng 1",
-    status: "history",
-    statusLabel: "Hoàn thành",
-    statusTone: "bg-[#eef2ff] text-[#4f46e5]",
-    avatar: "👩🏾",
-    summary:
-      "Lịch khám trước đó đã hoàn thành, có thể xem lại chi tiết và toa thuốc.",
-    detail:
-      "Lịch khám này đã hoàn thành. Bạn có thể xem lại ghi chú của bác sĩ, đơn thuốc và các nội dung tư vấn trong hồ sơ khám bệnh.",
+    id: "done-resp",
+    doctorName: "BS Trần Thị B",
+    specialty: "Hô hấp",
+    date: "15/06/2025",
+    time: "09:00",
+    mode: "Offline",
+    reason: "Ho và sốt đã được khám",
+    aiSummary: ["Ho khan 5 ngày", "Sốt nhẹ", "Đã được bác sĩ kê đơn"],
+    risk: "Thấp",
+    status: "completed",
   },
 ];
 
-const tabTitles: Record<AppointmentStatus, string> = {
-  upcoming: "Sắp tới",
-  history: "Lịch sử",
-};
+const specialties = ["Tim mạch", "Hô hấp", "Thần kinh", "Tiêu hóa", "Da liễu", "Khác"];
+const symptomRouting = [
+  { symptom: "Đau đầu", specialty: "Thần kinh" },
+  { symptom: "Đau ngực", specialty: "Tim mạch" },
+  { symptom: "Ho", specialty: "Hô hấp" },
+  { symptom: "Đau bụng", specialty: "Tiêu hóa" },
+  { symptom: "Mất ngủ", specialty: "Thần kinh" },
+  { symptom: "Khác", specialty: "Nội tổng quát" },
+];
 
-const mergeAppointments = (
-  baseList: AppointmentItem[],
-  createdBookings: CreatedBooking[],
-) => {
-  const createdAppointments: AppointmentItem[] = createdBookings.map(
-    (booking) => ({
-      id: booking.id,
-      code: booking.code,
-      doctorName: booking.doctorName,
-      specialty: booking.specialty,
-      mode: booking.mode === "direct" ? "Khám trực tiếp" : "Tư vấn Online",
-      dateLabel: booking.dateLabel,
-      timeLabel: booking.timeLabel,
-      location: booking.location,
-      status: "upcoming",
-      statusLabel: "Sắp diễn ra",
-      statusTone: "bg-[#ffeaea] text-[#ef4444]",
-      avatar: booking.avatar,
-      summary: booking.summary,
-      detail: booking.detail,
-      checkinQrCode: booking.checkinQrCode,
-    }),
+const onlineConsultOptions: Array<{
+  type: OnlineConsultType;
+  responseTime: string;
+  description: string;
+}> = [
+  {
+    type: "Chat",
+    responseTime: "~5 phút",
+    description: "Nhắn tin với bác sĩ phù hợp",
+  },
+  {
+    type: "Gọi thoại",
+    responseTime: "10-15 phút",
+    description: "Trao đổi nhanh bằng cuộc gọi",
+  },
+  {
+    type: "Video call",
+    responseTime: "15-30 phút",
+    description: "Tư vấn trực tiếp qua video",
+  },
+];
+
+const initialOnlineConsults: OnlineConsult[] = [
+  {
+    id: "online-chat-cardio",
+    doctorName: "BS Nguyễn Văn A",
+    specialty: "Tim mạch",
+    type: "Chat",
+    date: "24/07",
+    status: "Hoàn thành",
+  },
+];
+
+const doctorSpecialties = [
+  "Tất cả",
+  "Tim mạch",
+  "Hô hấp",
+  "Thần kinh",
+  "Da liễu",
+  "Nhi khoa",
+];
+
+const doctors: Doctor[] = [
+  {
+    id: "doctor-nguyen-a",
+    name: "BS Nguyễn Văn A",
+    specialty: "Tim mạch",
+    rating: "4.9",
+    consults: "2000 lượt tư vấn",
+    availability: "Online",
+    lastConsult: "24/07",
+  },
+  {
+    id: "doctor-tran-b",
+    name: "BS Trần Thị B",
+    specialty: "Hô hấp",
+    rating: "4.8",
+    consults: "1500 lượt tư vấn",
+    availability: "Online hôm nay",
+    lastConsult: "15/06",
+  },
+  {
+    id: "doctor-le-c",
+    name: "BS Lê Minh C",
+    specialty: "Thần kinh",
+    rating: "4.9",
+    consults: "980 lượt tư vấn",
+    availability: "Phản hồi 15 phút",
+  },
+  {
+    id: "doctor-pham-d",
+    name: "BS Phạm Thu D",
+    specialty: "Da liễu",
+    rating: "4.7",
+    consults: "860 lượt tư vấn",
+    availability: "Online",
+  },
+  {
+    id: "doctor-hoang-e",
+    name: "BS Hoàng Anh E",
+    specialty: "Nhi khoa",
+    rating: "4.8",
+    consults: "1200 lượt tư vấn",
+    availability: "Online hôm nay",
+  },
+];
+
+const storedConsultCasesKey = "mercy-patient-consult-cases";
+
+function readStoredConsultCases() {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const raw = window.localStorage.getItem(storedConsultCasesKey);
+    const parsed = raw ? (JSON.parse(raw) as ConsultCase[]) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function getEmergencyConsultCases() {
+  const merged = [...readStoredConsultCases(), ...consultCases];
+  const byId = new Map<string, ConsultCase>();
+
+  merged.forEach((caseItem) => {
+    if (caseItem.severity === "high" || caseItem.type === "emergency") {
+      byId.set(caseItem.id, caseItem);
+    }
+  });
+
+  return Array.from(byId.values());
+}
+
+function specialtyFromCase(caseItem: ConsultCase) {
+  const title = caseItem.title.toLowerCase();
+
+  if (caseItem.tag) return caseItem.tag;
+  if (title.includes("ngực") || title.includes("tim")) return "Tim mạch";
+  if (title.includes("thở") || title.includes("ho")) return "Hô hấp";
+  if (title.includes("đầu") || title.includes("chóng mặt")) return "Thần kinh";
+  if (title.includes("bụng") || title.includes("dạ dày")) return "Tiêu hóa";
+  return "Nội tổng quát";
+}
+
+function recommendationFromEmergencyCase(caseItem: ConsultCase): Recommendation {
+  const emergencyMessage = caseItem.messages.find(
+    (message) => message.kind === "emergency",
   );
 
-  const merged = [...createdAppointments, ...baseList];
-  const seen = new Set<string>();
-
-  return merged.filter((item) => {
-    if (seen.has(item.code)) {
-      return false;
-    }
-
-    seen.add(item.code);
-    return true;
-  });
-};
+  return {
+    id: `rec-${caseItem.id}`,
+    title: caseItem.title,
+    specialty: specialtyFromCase(caseItem),
+    timeframe: "càng sớm càng tốt",
+    tone: "danger",
+    summary: [
+      caseItem.subtitle,
+      emergencyMessage?.title ?? caseItem.status,
+      "AI đánh giá: nguy cơ cao",
+    ],
+  };
+}
 
 export default function PatientAppointmentsPage() {
-  const router = useRouter();
-  const [selectedTab, setSelectedTab] = useState<AppointmentStatus>("upcoming");
-  const [appointmentsList, setAppointmentsList] =
-    useState<AppointmentItem[]>(BASE_APPOINTMENTS);
-  const [rescheduledAppointmentId, setRescheduledAppointmentId] = useState<
-    string | null
+  const [appointments, setAppointments] =
+    useState<Appointment[]>(initialAppointments);
+  const [onlineConsults, setOnlineConsults] =
+    useState<OnlineConsult[]>(initialOnlineConsults);
+  const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
+  const [sheet, setSheet] = useState<
+    | "booking"
+    | "unknown"
+    | "online"
+    | "doctor-match"
+    | "doctor-directory"
+    | "recommendation-reason"
+    | null
   >(null);
-  const [selectedAppointment, setSelectedAppointment] =
-    useState<AppointmentItem | null>(null);
-  const [activeAction, setActiveAction] = useState<AppointmentItem | null>(
-    null,
-  );
-  const [isBookingOpen, setIsBookingOpen] = useState(false);
-  const [isCallOpen, setIsCallOpen] = useState(false);
-  const [callTarget, setCallTarget] = useState<AppointmentItem | null>(null);
-  const [qrTarget, setQrTarget] = useState<AppointmentItem | null>(null);
-  const [isRescheduleOpen, setIsRescheduleOpen] = useState(false);
-  const [isReschedulePending, setIsReschedulePending] = useState(false);
-  const [rescheduleTarget, setRescheduleTarget] =
-    useState<AppointmentItem | null>(null);
-  const [rescheduleDate, setRescheduleDate] = useState("Hôm nay");
-  const [rescheduleTime, setRescheduleTime] = useState("14:30");
+  const [bookingSpecialty, setBookingSpecialty] = useState<string | null>(null);
+  const [bookingMode, setBookingMode] = useState<AppointmentMode>("Online");
+  const [onlineType, setOnlineType] = useState<OnlineConsultType>("Chat");
+  const [activeTab, setActiveTab] = useState<AppointmentTab>("booking");
+  const [doctorFilter, setDoctorFilter] = useState("Tất cả");
+  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+  const [selectedRecommendation, setSelectedRecommendation] =
+    useState<Recommendation | null>(null);
+  const [detail, setDetail] = useState<Appointment | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+
+  const upcoming = appointments.filter((item) => item.status === "upcoming");
+  const completed = appointments.filter((item) => item.status === "completed");
+  const filteredDoctors =
+    doctorFilter === "Tất cả"
+      ? doctors
+      : doctors.filter((doctor) => doctor.specialty === doctorFilter);
+  const myDoctors = doctors.filter((doctor) => doctor.lastConsult);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const raw = window.localStorage.getItem(CREATED_BOOKINGS_STORAGE_KEY);
-
-    if (!raw) {
-      return;
-    }
-
-    try {
-      const createdBookings = JSON.parse(raw) as CreatedBooking[];
-      setAppointmentsList((current) =>
-        mergeAppointments(current, createdBookings),
-      );
-    } catch {
-      window.localStorage.removeItem(CREATED_BOOKINGS_STORAGE_KEY);
-    }
+    setRecommendations(
+      getEmergencyConsultCases().map(recommendationFromEmergencyCase),
+    );
   }, []);
 
-  const visibleAppointments = useMemo(
-    () =>
-      appointmentsList.filter(
-        (appointment) => appointment.status === selectedTab,
-      ),
-    [appointmentsList, selectedTab],
+  const summary = useMemo(
+    () => ({
+      tracked: recommendations.length,
+      upcoming: upcoming.length,
+    }),
+    [recommendations.length, upcoming.length],
   );
 
-  const upcomingAppointment = appointmentsList.find(
-    (appointment) => appointment.status === "upcoming",
-  );
-
-  const persistCreatedBooking = (booking: CreatedBooking) => {
-    setAppointmentsList((current) => mergeAppointments(current, [booking]));
-
-    if (typeof window !== "undefined") {
-      const raw = window.localStorage.getItem(CREATED_BOOKINGS_STORAGE_KEY);
-      const existingBookings = raw ? (JSON.parse(raw) as CreatedBooking[]) : [];
-      window.localStorage.setItem(
-        CREATED_BOOKINGS_STORAGE_KEY,
-        JSON.stringify([booking, ...existingBookings]),
-      );
-    }
-
-    setSelectedTab("upcoming");
+  const showToast = (message: string) => {
+    setToast(message);
+    window.setTimeout(() => setToast(null), 1800);
   };
 
-  const openAppointmentActions = (appointment: AppointmentItem) => {
-    setActiveAction(appointment);
-    setSelectedAppointment(null);
+  const openBooking = (specialty?: string) => {
+    setBookingSpecialty(specialty ?? null);
+    setBookingMode("Online");
+    setSheet("booking");
   };
 
-  const openAppointmentDetail = (appointment: AppointmentItem) => {
-    setSelectedAppointment(appointment);
-    setActiveAction(null);
+  const openOnlineConsult = (type: OnlineConsultType = "Chat") => {
+    setOnlineType(type);
+    setSheet("online");
   };
 
-  const openRescheduleModal = (appointment: AppointmentItem) => {
-    setRescheduleTarget(appointment);
-    setRescheduleDate("Hôm nay");
-    setRescheduleTime("14:30");
-    setIsRescheduleOpen(true);
-    setActiveAction(null);
+  const openDoctorDirectory = () => {
+    setDoctorFilter("Tất cả");
+    setSheet("doctor-directory");
   };
 
-  const confirmReschedule = () => {
-    setIsRescheduleOpen(false);
-    setIsReschedulePending(true);
-    if (rescheduleTarget) {
-      setRescheduledAppointmentId(rescheduleTarget.id);
-    }
-    setSelectedAppointment(null);
-    setActiveAction(null);
+  const openDoctorChat = (doctor: Doctor, type: OnlineConsultType = "Chat") => {
+    setSelectedDoctor(doctor);
+    setOnlineType(type);
+    setSheet("doctor-match");
   };
 
-  const goToConsult = () => {
-    router.push("/patient/consult");
+  const connectDoctor = () => {
+    const doctor = selectedDoctor ?? doctors[0];
+    const nextConsult: OnlineConsult = {
+      id: `online-${Date.now()}`,
+      doctorName: doctor.name,
+      specialty: doctor.specialty,
+      type: onlineType,
+      date: "Hôm nay",
+      status: "Đang kết nối",
+    };
+
+    setOnlineConsults((current) => [nextConsult, ...current]);
+    setSheet(null);
+    showToast("Đang tìm bác sĩ phù hợp");
   };
 
-  const openCallPopup = (appointment: AppointmentItem) => {
-    setCallTarget(appointment);
-    setIsCallOpen(true);
-  };
+  const createAppointment = () => {
+    const specialty = bookingSpecialty ?? "Nội tổng quát";
+    const nextAppointment: Appointment = {
+      id: `appointment-${Date.now()}`,
+      doctorName: "BS tư vấn trực tuyến",
+      specialty,
+      date: "Ngày mai",
+      time: "15:30",
+      mode: bookingMode,
+      reason: `Từ AI recommendation: Khám ${specialty}`,
+      aiSummary: [
+        `AI đề xuất khám ${specialty}`,
+        "Cần bác sĩ đánh giá thêm",
+        "Đã tạo lịch từ luồng tư vấn",
+      ],
+      risk: specialty === "Tim mạch" ? "Trung bình" : "Thấp",
+      status: "upcoming",
+    };
 
-  const openQrPopup = (appointment: AppointmentItem) => {
-    setQrTarget(appointment);
-  };
-
-  const openPrimaryAction = (appointment: AppointmentItem) => {
-    if (appointment.checkinQrCode) {
-      openQrPopup(appointment);
-      return;
-    }
-
-    openCallPopup(appointment);
-  };
-
-  const isOnlineAppointment = (appointment: AppointmentItem) =>
-    appointment.mode.toLowerCase().includes("online");
-
-  const changeTab = (tab: AppointmentStatus) => {
-    setSelectedTab(tab);
-    setSelectedAppointment(null);
-    setActiveAction(null);
+    setAppointments((current) => [nextAppointment, ...current]);
+    setSheet(null);
+    showToast("Đã đặt lịch khám thành công");
   };
 
   return (
-    <main className="min-h-screen bg-[#eceef2] px-2 py-1.5 sm:px-4 sm:py-5">
-      <div className="mx-auto w-full max-w-97.5 overflow-hidden rounded-3xl border border-[#d8dde7] bg-[#f7f8fb] shadow-[0_18px_48px_rgba(15,23,42,0.16)]">
-        <section className="rounded-b-[28px] bg-[#2f66dc] px-4 pb-3.5 pt-4.5 text-white">
-          <div className="mb-3.5 flex items-center justify-between">
-            <h1 className="text-[32px] font-bold leading-tight">
-              Lịch khám của tôi
-            </h1>
+    <main className="flex h-full min-h-0 justify-center bg-[#e9f5ed] px-2 py-2 sm:px-4 sm:py-5">
+      <div className="relative mx-auto flex h-full min-h-0 w-full max-w-97.5 flex-col overflow-hidden rounded-3xl border border-[#d7eadf] bg-[#f7fbf8] shadow-[0_18px_48px_rgba(15,23,42,0.12)]">
+        <header className="border-b border-[#d8eadf] bg-white px-4 pb-4 pt-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h1 className="text-[28px] font-bold leading-tight text-[#10233f]">
+                Lịch khám của tôi
+              </h1>
+              <div className="mt-2 flex flex-wrap gap-2 text-[13px] font-semibold">
+                <span className="rounded-full bg-[#ecfdf3] px-3 py-1 text-[#16a34a]">
+                  AI đang theo dõi: {summary.tracked} ca
+                </span>
+                <span className="rounded-full bg-[#eff6ff] px-3 py-1 text-[#2563eb]">
+                  Lịch sắp tới: {summary.upcoming}
+                </span>
+              </div>
+            </div>
             <button
               type="button"
-              aria-label="Đặt lịch khám"
-              className="flex h-11 w-11 items-center justify-center rounded-full bg-[#3c74ea] text-white shadow-[0_10px_24px_rgba(47,102,220,0.22)]"
-              onClick={() => setIsBookingOpen(true)}
+              aria-label="Đặt lịch"
+              onClick={() => openBooking()}
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#16a34a] text-white shadow-[0_12px_26px_rgba(22,163,74,0.22)]"
             >
-              <CalendarCheck2 className="h-4.5 w-4.5" />
+              <Plus className="h-5 w-5" />
             </button>
           </div>
-
-          <div className="grid grid-cols-2 rounded-2xl bg-[#255ad0] p-1">
-            <button
-              type="button"
-              className={`rounded-xl py-2 text-[17px] ${
-                selectedTab === "upcoming"
-                  ? "bg-white font-semibold text-[#2f66dc]"
-                  : "font-medium text-white/90"
-              }`}
-              onClick={() => changeTab("upcoming")}
-            >
-              Sắp tới
-            </button>
-            <button
-              type="button"
-              className={`rounded-xl py-2 text-[17px] ${
-                selectedTab === "history"
-                  ? "bg-white font-semibold text-[#2f66dc]"
-                  : "font-medium text-white/90"
-              }`}
-              onClick={() => changeTab("history")}
-            >
-              Lịch sử
-            </button>
-          </div>
-        </section>
-
-        <BookingModal
-          open={isBookingOpen}
-          onClose={() => setIsBookingOpen(false)}
-          onCreated={persistCreatedBooking}
-        />
-
-        {isCallOpen && callTarget ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-4">
-            <button
-              type="button"
-              aria-label="Đóng cuộc gọi"
-              className="absolute inset-0 bg-slate-950/75 backdrop-blur-xl animate-call-backdrop"
-              onClick={() => setIsCallOpen(false)}
+          <div className="mt-4 grid grid-cols-2 rounded-2xl bg-[#f1f5f9] p-1">
+            <TabButton
+              active={activeTab === "booking"}
+              label="Đặt lịch"
+              onClick={() => setActiveTab("booking")}
             />
-
-            <div className="relative flex h-[min(92vh,860px)] w-full max-w-md flex-col overflow-hidden rounded-4xl border border-white/10 bg-[#050816] shadow-[0_36px_120px_rgba(0,0,0,0.55)] animate-call-shell">
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(59,130,250,0.35),transparent_36%),radial-gradient(circle_at_bottom,rgba(37,99,235,0.18),transparent_30%)] animate-call-ambient" />
-
-              <div className="relative z-10 flex items-center justify-between px-4 py-4 text-white">
-                <div>
-                  <p className="inline-flex items-center gap-1 text-[13px] font-medium text-white/70">
-                    <span>Đang kết nối với</span>
-                    <span
-                      className="inline-flex items-end gap-0.5 text-white/60 animate-call-dots"
-                      aria-hidden="true"
-                    >
-                      <span>.</span>
-                      <span>.</span>
-                      <span>.</span>
-                    </span>
-                  </p>
-                  <h3 className="text-[18px] font-semibold">
-                    {callTarget.doctorName}
-                  </h3>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setIsCallOpen(false)}
-                  className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white"
-                >
-                  ×
-                </button>
-              </div>
-
-              <div className="relative z-10 flex flex-1 flex-col px-4 pb-4">
-                <div className="relative flex flex-1 items-end overflow-hidden rounded-4xl border border-white/10 bg-linear-to-b from-slate-900 via-slate-800 to-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]">
-                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_25%_20%,rgba(96,165,250,0.25),transparent_22%),radial-gradient(circle_at_75%_25%,rgba(14,165,233,0.2),transparent_18%),linear-gradient(180deg,rgba(15,23,42,0.2),rgba(2,6,23,0.65))]" />
-
-                  <div className="absolute left-4 top-4 rounded-full bg-white/10 px-3 py-1 text-[12px] font-medium text-white/90 backdrop-blur animate-call-chip">
-                    <span className="inline-flex items-end gap-0.5 text-white/75">
-                      <span className="animate-call-dot">.</span>
-                      <span className="animate-call-dot animate-call-dot-delay-1">
-                        .
-                      </span>
-                      <span className="animate-call-dot animate-call-dot-delay-2">
-                        .
-                      </span>
-                    </span>
-                  </div>
-
-                  <div className="absolute right-4 top-4 rounded-full bg-emerald-400/20 px-3 py-1 text-[12px] font-semibold text-emerald-200 backdrop-blur animate-call-chip">
-                    <span className="inline-flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full bg-emerald-300 animate-pulse" />
-                      Video call
-                    </span>
-                  </div>
-
-                  <div className="absolute inset-x-0 top-[18%] flex justify-center animate-call-float">
-                    <div className="flex flex-col items-center gap-3 text-center text-white">
-                      <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-white/15 bg-linear-to-br from-white/20 to-white/8 text-[56px] shadow-[0_24px_70px_rgba(0,0,0,0.3)] animate-call-avatar">
-                        {callTarget.avatar}
-                      </div>
-                      <div>
-                        <p className="text-[17px] font-semibold tracking-tight">
-                          {callTarget.doctorName}
-                        </p>
-                        <p className="mt-1 text-[13px] text-white/70">
-                          {callTarget.specialty} · Đang trực tuyến
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="absolute right-4 bottom-28 h-32 w-24 overflow-hidden rounded-2xl border border-white/10 bg-slate-700 shadow-[0_16px_40px_rgba(0,0,0,0.35)] animate-call-self">
-                    <div className="flex h-full items-center justify-center bg-linear-to-br from-slate-600 to-slate-800 text-[34px]">
-                      👤
-                    </div>
-                  </div>
-
-                  <div className="absolute left-4 bottom-28 rounded-2xl border border-white/10 bg-white/10 px-3 py-2 text-white/90 backdrop-blur animate-call-status">
-                    <p className="text-[12px] font-medium">
-                      Bác sĩ đang kết nối
-                    </p>
-                    <p className="text-[11px] text-white/65">
-                      Chất lượng mạng ổn định
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-4 grid grid-cols-3 gap-3 animate-call-controls">
-                  <button
-                    type="button"
-                    className="flex h-14 flex-col items-center justify-center rounded-[1.25rem] bg-white/10 text-white backdrop-blur"
-                  >
-                    <Camera className="h-5 w-5" />
-                    <span className="mt-1 text-[11px]">Camera</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="flex h-14 flex-col items-center justify-center rounded-[1.25rem] bg-white/10 text-white backdrop-blur"
-                  >
-                    <Mic className="h-5 w-5" />
-                    <span className="mt-1 text-[11px]">Mic</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsCallOpen(false)}
-                    className="flex h-14 flex-col items-center justify-center rounded-[1.25rem] bg-[#ef4444] text-white shadow-[0_12px_30px_rgba(239,68,68,0.28)]"
-                  >
-                    <PhoneOff className="h-5 w-5" />
-                    <span className="mt-1 text-[11px]">Ngắt kết nối</span>
-                  </button>
-                </div>
-
-                <div className="mt-3 rounded-[1.25rem] border border-white/10 bg-white/8 px-4 py-3 text-white/85 backdrop-blur animate-call-summary">
-                  <p className="text-[13px] font-medium">
-                    {callTarget.summary}
-                  </p>
-                  <p className="mt-1 text-[12px] text-white/60">
-                    Nhấn nút đỏ để ngắt kết nối cuộc gọi.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {qrTarget?.checkinQrCode ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-4">
-            <button
-              type="button"
-              aria-label="Đóng mã QR"
-              className="absolute inset-0 bg-slate-950/65 backdrop-blur-sm"
-              onClick={() => setQrTarget(null)}
+            <TabButton
+              active={activeTab === "doctor"}
+              label="Bác sĩ tư vấn"
+              onClick={() => setActiveTab("doctor")}
             />
-
-            <div className="relative w-full max-w-md rounded-3xl bg-white p-5 shadow-[0_24px_70px_rgba(15,23,42,0.3)]">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-[14px] font-semibold text-[#2f66dc]">
-                    Trình mã QR
-                  </p>
-                  <h3 className="mt-1 text-[18px] font-bold text-[#202939]">
-                    {qrTarget.doctorName}
-                  </h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setQrTarget(null)}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f1f5f9] text-[#64748b]"
-                >
-                  ×
-                </button>
-              </div>
-
-              <div className="mt-4 rounded-3xl border border-[#e5e8ee] bg-[#f8fbff] p-4">
-                <p className="text-[13px] font-semibold text-[#202939]">
-                  Mã quét khi đến phòng khám
-                </p>
-                <p className="mt-1 text-[12px] text-[#6b7280]">
-                  Đưa mã này cho nhân viên quầy lễ tân để xác nhận nhanh.
-                </p>
-
-                <div className="mt-4 flex justify-center">
-                  <div className="grid aspect-square w-56 grid-cols-9 gap-0.5 rounded-3xl bg-white p-3 shadow-[inset_0_0_0_1px_rgba(37,99,235,0.08)]">
-                    {QR_PATTERN.flatMap((row, rowIndex) =>
-                      row
-                        .split("")
-                        .map((cell, cellIndex) => (
-                          <div
-                            key={`${rowIndex}-${cellIndex}`}
-                            className={`rounded-xs ${cell === "1" ? "bg-slate-950" : "bg-slate-200/70"}`}
-                          />
-                        )),
-                    )}
-                  </div>
-                </div>
-
-                <div className="mt-4 rounded-2xl bg-white px-4 py-3 text-[13px] leading-6 text-[#344054] shadow-[0_4px_14px_rgba(148,163,184,0.08)]">
-                  <div className="flex justify-between gap-3">
-                    <span className="text-[#6b7280]">Mã lịch</span>
-                    <span className="font-semibold">{qrTarget.code}</span>
-                  </div>
-                  <div className="mt-2 flex justify-between gap-3">
-                    <span className="text-[#6b7280]">Hình thức</span>
-                    <span className="font-semibold">{qrTarget.mode}</span>
-                  </div>
-                  <div className="mt-2 flex justify-between gap-3">
-                    <span className="text-[#6b7280]">Thời gian</span>
-                    <span className="font-semibold">
-                      {qrTarget.dateLabel} · {qrTarget.timeLabel}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setQrTarget(null)}
-                  className="rounded-full bg-[#2f66dc] px-4 py-2 text-[14px] font-medium text-white"
-                >
-                  Đóng
-                </button>
-              </div>
-            </div>
           </div>
-        ) : null}
+        </header>
 
-        {isReschedulePending && rescheduleTarget ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-            <button
-              type="button"
-              aria-label="Đóng trạng thái chờ xác nhận"
-              className="absolute inset-0 bg-slate-950/55 backdrop-blur-sm"
-              onClick={() => setIsReschedulePending(false)}
-            />
-
-            <div className="relative w-full max-w-md rounded-3xl bg-white p-5 shadow-[0_24px_70px_rgba(15,23,42,0.3)]">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-[14px] font-semibold text-[#2f66dc]">
-                    Đổi lịch đã gửi
-                  </p>
-                  <h3 className="mt-1 text-[18px] font-bold text-[#202939]">
-                    {rescheduleTarget.doctorName}
-                  </h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsReschedulePending(false)}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f1f5f9] text-[#64748b]"
-                >
-                  ×
-                </button>
+        <section className="min-h-0 flex-1 overflow-y-auto px-4 pb-28 pt-4">
+          {activeTab === "booking" ? (
+            <>
+              <SectionTitle icon={HeartPulse} title="Tiếp tục chăm sóc" />
+              <div className="mt-3">
+                <CareFollowUpCard
+                  onUpdate={() => showToast("Đã mở cập nhật tình trạng")}
+                />
               </div>
 
-              <div className="mt-4 rounded-2xl bg-[#f8fbff] p-4 text-[14px] leading-6 text-[#475569]">
-                <p className="font-semibold text-[#202939]">
-                  Lịch mới: {rescheduleDate} · {rescheduleTime}
-                </p>
-                <p className="mt-2">
-                  Chờ Bác sĩ xác nhận lịch hẹn mới. Bạn sẽ nhận thông báo khi
-                  bác sĩ phản hồi.
-                </p>
+              <SectionTitle
+                icon={Bot}
+                title="AI khuyến nghị khám"
+                className="mt-7"
+              />
+              <div className="mt-3 grid gap-3">
+                {recommendations.length > 0 ? (
+                  recommendations.map((item) => (
+                    <RecommendationCard
+                      key={item.id}
+                      recommendation={item}
+                      onBook={() => openBooking(item.specialty)}
+                      onExplain={() => {
+                        setSelectedRecommendation(item);
+                        setSheet("recommendation-reason");
+                      }}
+                    />
+                  ))
+                ) : (
+                  <div className="rounded-[24px] border border-[#d8eadf] bg-white p-4 text-[14px] leading-6 text-[#64748b] shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+                    Chưa có ca khẩn cấp nào cần AI khuyến nghị đặt lịch khám.
+                  </div>
+                )}
               </div>
 
-              <div className="mt-4 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setIsReschedulePending(false)}
-                  className="rounded-full bg-[#2f66dc] px-4 py-2 text-[14px] font-medium text-white"
-                >
-                  Đóng
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {isRescheduleOpen && rescheduleTarget ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-            <button
-              type="button"
-              aria-label="Đóng đổi lịch"
-              className="absolute inset-0 bg-slate-950/55 backdrop-blur-sm"
-              onClick={() => setIsRescheduleOpen(false)}
-            />
-
-            <div className="relative w-full max-w-md rounded-3xl bg-white p-5 shadow-[0_24px_70px_rgba(15,23,42,0.3)]">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-[14px] font-semibold text-[#2f66dc]">
-                    Đổi lịch với Bác sĩ
-                  </p>
-                  <h3 className="mt-1 text-[18px] font-bold text-[#202939]">
-                    {rescheduleTarget.doctorName}
-                  </h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setIsRescheduleOpen(false)}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f1f5f9] text-[#64748b]"
-                >
-                  ×
-                </button>
+              <SectionTitle
+                icon={CalendarDays}
+                title="Sắp tới"
+                className="mt-7"
+              />
+              <div className="mt-3 grid gap-3">
+                {upcoming.map((item) => (
+                  <AppointmentCard
+                    key={item.id}
+                    appointment={item}
+                    onDetail={() => setDetail(item)}
+                    onReschedule={() => showToast("Đã mở yêu cầu đổi lịch")}
+                  />
+                ))}
               </div>
 
-              <div className="mt-4 space-y-4">
-                <div>
-                  <p className="mb-2 text-[14px] font-semibold text-[#202939]">
-                    Chọn ngày mới
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {["Hôm nay", "Ngày mai", "Thứ 3"].map((day) => (
-                      <button
-                        key={day}
-                        type="button"
-                        onClick={() => setRescheduleDate(day)}
-                        className={`rounded-full px-3 py-2 text-[14px] ${rescheduleDate === day ? "bg-[#2f66dc] font-semibold text-white" : "border border-[#dbe4f3] bg-white text-[#4b5565]"}`}
-                      >
-                        {day}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <p className="mb-2 text-[14px] font-semibold text-[#202939]">
-                    Chọn giờ mới
-                  </p>
-                  <div className="grid grid-cols-3 gap-2">
-                    {["14:00", "14:30", "15:00", "15:30", "16:00", "16:30"].map(
-                      (time) => (
-                        <button
-                          key={time}
-                          type="button"
-                          onClick={() => setRescheduleTime(time)}
-                          className={`rounded-xl px-3 py-2 text-[14px] ${rescheduleTime === time ? "bg-[#2f66dc] font-semibold text-white" : "border border-[#dbe4f3] bg-white text-[#4b5565]"}`}
-                        >
-                          {time}
-                        </button>
-                      ),
-                    )}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl bg-[#f8fbff] p-4 text-[14px] leading-6 text-[#475569]">
-                  <p className="font-semibold text-[#202939]">Lưu ý</p>
-                  <p className="mt-1">
-                    Sau khi xác nhận, lịch sẽ chuyển sang trạng thái chờ Bác sĩ
-                    xác nhận.
-                  </p>
-                </div>
+              <SectionTitle
+                icon={CalendarCheck2}
+                title="Đã khám"
+                className="mt-7"
+              />
+              <div className="mt-3 grid gap-3">
+                {completed.map((item) => (
+                  <CompletedCard
+                    key={item.id}
+                    appointment={item}
+                    onDetail={() => setDetail(item)}
+                  />
+                ))}
               </div>
-
-              <div className="mt-4 flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsRescheduleOpen(false)}
-                  className="rounded-full border border-[#dbe4f3] bg-white px-4 py-2 text-[14px] font-medium text-[#202939]"
-                >
-                  Hủy
-                </button>
-                <button
-                  type="button"
-                  onClick={confirmReschedule}
-                  className="rounded-full bg-[#2f66dc] px-4 py-2 text-[14px] font-medium text-white"
-                >
-                  Xác nhận đổi lịch
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        <section className="px-4 pb-23 pt-4">
-          <div className="space-y-3">
-            {visibleAppointments.map((appointment) => {
-              const isWaitingDoctorConfirmation =
-                appointment.id === rescheduledAppointmentId;
-
-              return (
-                <article
-                  key={appointment.id}
-                  className={`rounded-3xl border border-[#e4e8ef] border-l-6 bg-white p-2.5 shadow-[0_4px_14px_rgba(148,163,184,0.1)] ${
-                    appointment.status === "upcoming"
-                      ? "border-l-[#ef4444]"
-                      : "border-l-[#22c55e]"
-                  }`}
-                >
-                  <div className="mb-2.5 flex items-start justify-between gap-3">
-                    <span
-                      className={`inline-flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-[14px] font-semibold ${
-                        isWaitingDoctorConfirmation
-                          ? "bg-[#fff3cd] text-[#b45309]"
-                          : appointment.statusTone
-                      }`}
-                    >
-                      {appointment.status === "upcoming" &&
-                      !isWaitingDoctorConfirmation ? (
-                        <span className="h-2 w-2 rounded-full bg-[#ef4444]" />
-                      ) : null}
-                      {isWaitingDoctorConfirmation
-                        ? "Chờ Bác sĩ xác nhận"
-                        : appointment.statusLabel}
-                    </span>
-                    <span className="text-[14px] text-[#96a0b1]">
-                      Mã: {appointment.code}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div
-                        className={`flex h-11 w-11 items-center justify-center rounded-2xl text-[27px] ${
-                          appointment.status === "upcoming"
-                            ? "bg-[#dcecff]"
-                            : "bg-[#f1f3f7]"
-                        }`}
-                      >
-                        {appointment.avatar}
-                      </div>
-                      <div>
-                        <p className="text-[16px] font-bold leading-tight text-[#202939]">
-                          {appointment.doctorName}
-                        </p>
-                        <p className="mt-0.5 text-[14px] text-[#66758a]">
-                          {appointment.specialty} • {appointment.mode}
-                        </p>
-                      </div>
-                    </div>
-
-                    {appointment.status === "upcoming" ? (
-                      <button
-                        type="button"
-                        aria-label={
-                          appointment.checkinQrCode
-                            ? "Trình mã QR"
-                            : "Vào phòng tư vấn"
-                        }
-                        className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#edf3ff] text-[#2f66dc]"
-                        onClick={() => openPrimaryAction(appointment)}
-                      >
-                        {appointment.checkinQrCode ? (
-                          <QrCode className="h-4 w-4" />
-                        ) : (
-                          <Video className="h-4 w-4" />
-                        )}
-                      </button>
-                    ) : null}
-                  </div>
-
-                  <div className="mt-2.5 grid grid-cols-2 gap-2 rounded-2xl bg-[#f5f7fb] px-3 py-2 text-[#3f4c5f]">
-                    <div className="flex items-center gap-1.5 text-[14px]">
-                      <CalendarDays className="h-4 w-4 text-[#2d67e7]" />
-                      <span>{appointment.dateLabel}</span>
-                    </div>
-                    <div className="flex items-center justify-end gap-1.5 text-[14px] font-semibold text-[#4b5565]">
-                      <Clock3 className="h-4 w-4 text-[#6b7280]" />
-                      <span>{appointment.timeLabel}</span>
-                    </div>
-                  </div>
-
-                  {appointment.location ? (
-                    <div className="mt-2.5 flex items-center gap-1.5 text-[14px] text-[#6b7280]">
-                      <MapPin className="h-4 w-4" />
-                      <span>{appointment.location}</span>
-                    </div>
-                  ) : null}
-
-                  <p className="mt-2.5 text-[13px] leading-5 text-[#66758a]">
-                    {appointment.summary}
-                  </p>
-
-                  <div className="mt-2.5 grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      className="rounded-2xl bg-[#f2f4f8] px-4 py-2 text-[15px] font-medium text-[#4b5565]"
-                      onClick={() => openRescheduleModal(appointment)}
-                    >
-                      Đổi lịch
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded-2xl border border-[#d2d8e3] bg-white px-4 py-2 text-[15px] font-medium text-[#2f66dc]"
-                      onClick={() => openAppointmentDetail(appointment)}
-                    >
-                      Chi tiết
-                    </button>
-                  </div>
-
-                  {appointment.status === "upcoming" &&
-                  !isWaitingDoctorConfirmation ? (
-                    <button
-                      type="button"
-                      className="mt-2.5 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#2f66dc] px-4 py-2 text-[15px] font-medium text-white"
-                      onClick={() => openPrimaryAction(appointment)}
-                    >
-                      {appointment.checkinQrCode ? (
-                        <QrCode className="h-4 w-4" />
-                      ) : (
-                        <Video className="h-4 w-4" />
-                      )}
-                      {appointment.checkinQrCode
-                        ? "Trình mã QR"
-                        : "Vào phòng tư vấn"}
-                    </button>
-                  ) : isWaitingDoctorConfirmation ? (
-                    <div className="mt-2.5 rounded-2xl bg-[#fff9e8] px-4 py-2 text-[13px] leading-5 text-[#9a6700]">
-                      Bạn đã đổi lịch. Hiện lịch này đang chờ Bác sĩ xác nhận.
-                    </div>
-                  ) : null}
-                </article>
-              );
-            })}
-          </div>
-        </section>
-
-        {selectedAppointment ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-            <button
-              type="button"
-              aria-label="Đóng chi tiết lịch khám"
-              className="absolute inset-0 bg-slate-950/55 backdrop-blur-sm"
-              onClick={() => setSelectedAppointment(null)}
-            />
-
-            <div className="relative w-full max-w-md rounded-3xl bg-white p-5 shadow-[0_24px_70px_rgba(15,23,42,0.3)]">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-[14px] font-semibold text-[#2f66dc]">
-                    Chi tiết lịch khám
-                  </p>
-                  <h3 className="mt-1 text-[18px] font-bold text-[#202939]">
-                    {selectedAppointment.doctorName}
-                  </h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setSelectedAppointment(null)}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f1f5f9] text-[#64748b]"
-                >
-                  ×
-                </button>
-              </div>
-
-              <div className="mt-4 rounded-2xl bg-[#f8fbff] p-4 text-[14px] leading-6 text-[#475569]">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#f1f3f7] text-[32px]">
-                    {selectedAppointment.avatar}
-                  </div>
-                  <div>
-                    <p className="text-[15px] font-semibold text-[#202939]">
-                      {selectedAppointment.specialty} •{" "}
-                      {selectedAppointment.mode}
-                    </p>
-                    <p className="mt-1 text-[13px] text-[#6b7280]">
-                      Mã lịch: {selectedAppointment.code}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-4 space-y-2 rounded-2xl bg-white p-4 shadow-[0_4px_14px_rgba(148,163,184,0.08)]">
-                  <div className="flex items-center gap-2 text-[#334155]">
-                    <CalendarDays className="h-4 w-4 text-[#2d67e7]" />
-                    <span>{selectedAppointment.dateLabel}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-[#334155]">
-                    <Clock3 className="h-4 w-4 text-[#2d67e7]" />
-                    <span>{selectedAppointment.timeLabel}</span>
-                  </div>
-                  {selectedAppointment.location ? (
-                    <div className="flex items-start gap-2 text-[#334155]">
-                      <MapPin className="mt-0.5 h-4 w-4 text-[#2d67e7]" />
-                      <span>{selectedAppointment.location}</span>
-                    </div>
-                  ) : null}
-                </div>
-
-                <p className="mt-4">{selectedAppointment.detail}</p>
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button
-                    type="button"
+            </>
+          ) : (
+            <>
+              <SectionTitle
+                icon={MessageCircle}
+                title="Tư vấn online với bác sĩ"
+              />
+              <div className="mt-3 grid gap-3">
+                <OnlineConsultHero
+                  onChat={() => openOnlineConsult("Chat")}
+                  onVideo={() => openOnlineConsult("Video call")}
+                  onChooseDoctor={openDoctorDirectory}
+                />
+                <div className="grid grid-cols-3 gap-2">
+                  <QuickActionButton
+                    icon={MessageCircle}
+                    label="Chat với bác sĩ"
+                    onClick={() => openOnlineConsult("Chat")}
+                  />
+                  <QuickActionButton
+                    icon={Video}
+                    label="Video call"
+                    onClick={() => openOnlineConsult("Video call")}
+                  />
+                  <QuickActionButton
+                    icon={CalendarDays}
+                    label="Đặt lịch khám"
                     onClick={() => {
-                      setSelectedAppointment(null);
-                      openAppointmentActions(selectedAppointment);
+                      setActiveTab("booking");
+                      openBooking();
                     }}
-                    className="rounded-full bg-[#2f66dc] px-4 py-2 text-[14px] font-medium text-white"
-                  >
-                    Thao tác nhanh
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedAppointment(null)}
-                    className="rounded-full border border-[#dbe4f3] bg-white px-4 py-2 text-[14px] font-medium text-[#202939]"
-                  >
-                    Đóng
-                  </button>
+                  />
                 </div>
               </div>
-            </div>
-          </div>
-        ) : null}
 
-        {activeAction ? (
-          <div className="fixed inset-0 z-50 flex items-end justify-center px-4 pb-4 sm:items-center sm:pb-0">
-            <button
-              type="button"
-              aria-label="Đóng menu thao tác lịch khám"
-              className="absolute inset-0 bg-slate-950/55 backdrop-blur-sm"
-              onClick={() => setActiveAction(null)}
-            />
+              <SectionTitle
+                icon={Stethoscope}
+                title="Chọn bác sĩ"
+                className="mt-7"
+              />
+              <div className="-mx-4 mt-3 flex gap-3 overflow-x-auto px-4 pb-1">
+                {doctors.slice(0, 4).map((doctor) => (
+                  <DoctorMiniCard
+                    key={doctor.id}
+                    doctor={doctor}
+                    onChat={() => openDoctorChat(doctor, "Chat")}
+                  />
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={openDoctorDirectory}
+                className="mt-3 min-h-11 w-full rounded-2xl border border-[#d8eadf] bg-white text-sm font-bold text-[#334155]"
+              >
+                Tìm bác sĩ
+              </button>
 
-            <div className="relative w-full max-w-md rounded-[30px] bg-white p-5 shadow-[0_24px_70px_rgba(15,23,42,0.28)]">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-[14px] font-semibold text-[#2f66dc]">
-                    Hành động lịch khám
-                  </p>
-                  <h3 className="mt-1 text-[18px] font-bold text-[#202939]">
-                    {activeAction.doctorName}
-                  </h3>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setActiveAction(null)}
-                  className="flex h-9 w-9 items-center justify-center rounded-full bg-[#f1f5f9] text-[#64748b]"
-                >
-                  ×
-                </button>
+              <SectionTitle
+                icon={MessageCircle}
+                title="Bác sĩ đã từng tư vấn"
+                className="mt-7"
+              />
+              <div className="mt-3 grid gap-3">
+                {myDoctors.map((doctor) => (
+                  <MyDoctorCard
+                    key={doctor.id}
+                    doctor={doctor}
+                    onChat={() => openDoctorChat(doctor, "Chat")}
+                  />
+                ))}
               </div>
 
-              <div className="mt-4 grid gap-2">
-                <button
-                  type="button"
-                  onClick={() => openPrimaryAction(activeAction)}
-                  className="flex items-center justify-between rounded-2xl border border-[#e5e8ee] px-4 py-3 text-left"
-                >
-                  <div>
-                    <p className="font-semibold text-[#202939]">
-                      {activeAction.checkinQrCode
-                        ? "Trình mã QR"
-                        : "Vào phòng tư vấn"}
-                    </p>
-                    <p className="text-[13px] text-[#6b7280]">
-                      {activeAction.checkinQrCode
-                        ? "Hiển thị mã QR để quét tại quầy"
-                        : "Mở nhanh phòng tư vấn trực tuyến"}
-                    </p>
-                  </div>
-                  {activeAction.checkinQrCode ? (
-                    <QrCode className="h-4.5 w-4.5 text-[#2f66dc]" />
-                  ) : (
-                    <Video className="h-4.5 w-4.5 text-[#2f66dc]" />
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    openRescheduleModal(activeAction);
-                  }}
-                  className="flex items-center justify-between rounded-2xl border border-[#e5e8ee] px-4 py-3 text-left"
-                >
-                  <div>
-                    <p className="font-semibold text-[#202939]">Đổi lịch</p>
-                    <p className="text-[13px] text-[#6b7280]">
-                      Chọn lại lịch với Bác sĩ và chờ xác nhận
-                    </p>
-                  </div>
-                  <Clock3 className="h-4.5 w-4.5 text-[#2f66dc]" />
-                </button>
+              <SectionTitle
+                icon={MessageCircle}
+                title="Tư vấn online gần đây"
+                className="mt-7"
+              />
+              <div className="mt-3 grid gap-3">
+                {onlineConsults.map((item) => (
+                  <OnlineConsultRecord key={item.id} consult={item} />
+                ))}
               </div>
+            </>
+          )}
+        </section>
 
-              <div className="mt-4 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setActiveAction(null)}
-                  className="rounded-full bg-[#2f66dc] px-4 py-2 text-[14px] font-medium text-white"
-                >
-                  Đóng
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        <style jsx global>{`
-          @keyframes call-backdrop {
-            0% {
-              opacity: 0;
-            }
-            100% {
-              opacity: 1;
-            }
-          }
-
-          @keyframes call-shell {
-            0% {
-              opacity: 0;
-              transform: translateY(22px) scale(0.97);
-            }
-            100% {
-              opacity: 1;
-              transform: translateY(0) scale(1);
-            }
-          }
-
-          @keyframes call-ambient {
-            0%,
-            100% {
-              opacity: 0.72;
-              transform: scale(1);
-            }
-            50% {
-              opacity: 1;
-              transform: scale(1.06);
-            }
-          }
-
-          @keyframes call-float {
-            0%,
-            100% {
-              transform: translateY(0);
-            }
-            50% {
-              transform: translateY(-6px);
-            }
-          }
-
-          @keyframes call-avatar {
-            0%,
-            100% {
-              transform: scale(1);
-              box-shadow:
-                0 0 0 0 rgba(96, 165, 250, 0.18),
-                0 24px 70px rgba(0, 0, 0, 0.3);
-            }
-            50% {
-              transform: scale(1.03);
-              box-shadow:
-                0 0 0 10px rgba(96, 165, 250, 0.05),
-                0 24px 80px rgba(0, 0, 0, 0.36);
-            }
-          }
-
-          @keyframes call-self {
-            0%,
-            100% {
-              transform: translateY(0);
-            }
-            50% {
-              transform: translateY(-4px);
-            }
-          }
-
-          @keyframes call-status {
-            0%,
-            100% {
-              transform: translateX(0);
-              opacity: 0.9;
-            }
-            50% {
-              transform: translateX(4px);
-              opacity: 1;
-            }
-          }
-
-          @keyframes call-dots {
-            0%,
-            20% {
-              opacity: 0.25;
-              transform: translateY(0);
-            }
-            40% {
-              opacity: 0.7;
-              transform: translateY(-1px);
-            }
-            60% {
-              opacity: 1;
-              transform: translateY(0);
-            }
-            80%,
-            100% {
-              opacity: 0.35;
-              transform: translateY(0);
-            }
-          }
-
-          @keyframes call-summary {
-            0%,
-            100% {
-              transform: translateY(0);
-            }
-            50% {
-              transform: translateY(-2px);
-            }
-          }
-
-          @keyframes call-chip {
-            0%,
-            100% {
-              transform: translateY(0);
-            }
-            50% {
-              transform: translateY(-1px);
-            }
-          }
-
-          @keyframes call-dot {
-            0%,
-            100% {
-              opacity: 0.3;
-              transform: translateY(0) scale(0.9);
-            }
-            40% {
-              opacity: 1;
-              transform: translateY(-2px) scale(1.08);
-            }
-            70% {
-              opacity: 0.7;
-              transform: translateY(0) scale(1);
-            }
-          }
-
-          @keyframes call-controls {
-            0% {
-              opacity: 0;
-              transform: translateY(12px);
-            }
-            100% {
-              opacity: 1;
-              transform: translateY(0);
-            }
-          }
-
-          .animate-call-backdrop {
-            animation: call-backdrop 220ms ease-out both;
-          }
-
-          .animate-call-shell {
-            animation: call-shell 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
-          }
-
-          .animate-call-ambient {
-            animation: call-ambient 7s ease-in-out infinite;
-          }
-
-          .animate-call-float {
-            animation: call-float 4.2s ease-in-out infinite;
-          }
-
-          .animate-call-avatar {
-            animation: call-avatar 3.8s ease-in-out infinite;
-          }
-
-          .animate-call-self {
-            animation: call-self 3.6s ease-in-out infinite;
-          }
-
-          .animate-call-status {
-            animation: call-status 3.8s ease-in-out infinite;
-          }
-
-          .animate-call-dots {
-            animation: call-dots 1.2s ease-in-out infinite;
-          }
-
-          .animate-call-summary {
-            animation: call-summary 4.6s ease-in-out infinite;
-          }
-
-          .animate-call-chip {
-            animation: call-chip 3.2s ease-in-out infinite;
-          }
-
-          .animate-call-dot {
-            display: inline-block;
-            animation: call-dot 1.1s ease-in-out infinite;
-          }
-
-          .animate-call-dot-delay-1 {
-            animation-delay: 140ms;
-          }
-
-          .animate-call-dot-delay-2 {
-            animation-delay: 280ms;
-          }
-
-          .animate-call-controls {
-            animation: call-controls 520ms ease-out both;
-            animation-delay: 120ms;
-          }
-        `}</style>
       </div>
+
+      {sheet === "booking" ? (
+        <BottomSheet onClose={() => setSheet(null)}>
+          <BookingSheet
+            specialty={bookingSpecialty}
+            mode={bookingMode}
+            onSpecialtyChange={setBookingSpecialty}
+            onModeChange={setBookingMode}
+            onUnknown={() => setSheet("unknown")}
+            onConfirm={createAppointment}
+          />
+        </BottomSheet>
+      ) : null}
+
+      {sheet === "unknown" ? (
+        <BottomSheet onClose={() => setSheet(null)}>
+          <UnknownSpecialtySheet
+            onSelect={(specialty) => {
+              setBookingSpecialty(specialty);
+              setSheet("booking");
+            }}
+          />
+        </BottomSheet>
+      ) : null}
+
+      {sheet === "online" ? (
+        <BottomSheet onClose={() => setSheet(null)}>
+          <OnlineConsultSheet
+            selectedType={onlineType}
+            onSelectType={setOnlineType}
+            onContinue={() => setSheet("doctor-match")}
+          />
+        </BottomSheet>
+      ) : null}
+
+      {sheet === "doctor-match" ? (
+        <BottomSheet onClose={() => setSheet(null)}>
+          <DoctorMatchSheet
+            doctor={selectedDoctor ?? doctors[0]}
+            type={onlineType}
+            onConnect={connectDoctor}
+          />
+        </BottomSheet>
+      ) : null}
+
+      {sheet === "doctor-directory" ? (
+        <BottomSheet onClose={() => setSheet(null)}>
+          <DoctorDirectorySheet
+            doctors={filteredDoctors}
+            filter={doctorFilter}
+            onFilterChange={setDoctorFilter}
+            onChat={(doctor) => openDoctorChat(doctor, "Chat")}
+            onVideo={(doctor) => openDoctorChat(doctor, "Video call")}
+          />
+        </BottomSheet>
+      ) : null}
+
+      {sheet === "recommendation-reason" && selectedRecommendation ? (
+        <BottomSheet onClose={() => setSheet(null)}>
+          <RecommendationReasonSheet recommendation={selectedRecommendation} />
+        </BottomSheet>
+      ) : null}
+
+      {detail ? (
+        <AppointmentDetail appointment={detail} onClose={() => setDetail(null)} />
+      ) : null}
+
+      {toast ? (
+        <div className="fixed left-1/2 top-4 z-60 -translate-x-1/2 rounded-full bg-[#10233f] px-4 py-2 text-[13px] font-semibold text-white shadow-lg">
+          {toast}
+        </div>
+      ) : null}
     </main>
+  );
+}
+
+function SectionTitle({
+  icon: Icon,
+  title,
+  className = "",
+}: {
+  icon: ComponentType<{ className?: string }>;
+  title: string;
+  className?: string;
+}) {
+  return (
+    <div className={`flex items-center gap-2 ${className}`}>
+      <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#ecfdf3] text-[#16a34a]">
+        <Icon className="h-4.5 w-4.5" />
+      </span>
+      <h2 className="text-[18px] font-bold text-[#10233f]">{title}</h2>
+    </div>
+  );
+}
+
+function TabButton({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`min-h-10 rounded-xl text-sm font-bold transition ${
+        active
+          ? "bg-white text-[#10233f] shadow-[0_6px_18px_rgba(15,23,42,0.08)]"
+          : "text-[#64748b]"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function CareFollowUpCard({ onUpdate }: { onUpdate: () => void }) {
+  return (
+    <article className="rounded-[24px] border border-[#d8eadf] bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-[17px] font-bold text-[#10233f]">Khó thở</h3>
+          <p className="mt-1 text-[14px] text-[#64748b]">
+            AI đang theo dõi · Cập nhật cuối: 2 giờ trước
+          </p>
+        </div>
+        <span className="rounded-full bg-[#fffbeb] px-3 py-1 text-[12px] font-bold text-[#b45309]">
+          Theo dõi
+        </span>
+      </div>
+      <button
+        type="button"
+        onClick={onUpdate}
+        className="mt-3 min-h-10 w-full rounded-2xl border border-[#d8eadf] bg-white text-sm font-bold text-[#334155]"
+      >
+        Cập nhật tình trạng
+      </button>
+    </article>
+  );
+}
+
+function OnlineConsultHero({
+  onChat,
+  onVideo,
+  onChooseDoctor,
+}: {
+  onChat: () => void;
+  onVideo: () => void;
+  onChooseDoctor: () => void;
+}) {
+  return (
+    <article className="rounded-[24px] border border-[#bbf7d0] bg-[#ecfdf3] p-4 shadow-[0_12px_28px_rgba(22,163,74,0.08)]">
+      <div className="flex items-start gap-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-[#16a34a]">
+          <MessageCircle className="h-5 w-5" />
+        </span>
+        <div className="min-w-0">
+          <h3 className="text-[17px] font-bold text-[#10233f]">
+            Tư vấn trực tuyến
+          </h3>
+          <p className="mt-1 text-[14px] leading-6 text-[#475569]">
+            Trao đổi qua chat hoặc video với bác sĩ phù hợp.
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        <button
+          type="button"
+          onClick={onChat}
+          className="min-h-11 rounded-2xl bg-[#16a34a] px-2 text-xs font-bold text-white"
+        >
+          Chat với bác sĩ
+        </button>
+        <button
+          type="button"
+          onClick={onVideo}
+          className="min-h-11 rounded-2xl border border-[#bbf7d0] bg-white px-2 text-xs font-bold text-[#166534]"
+        >
+          Video call
+        </button>
+        <button
+          type="button"
+          onClick={onChooseDoctor}
+          className="min-h-11 rounded-2xl border border-[#bbf7d0] bg-white px-2 text-xs font-bold text-[#166534]"
+        >
+          Chọn bác sĩ
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function QuickActionButton({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-[22px] border border-[#d8eadf] bg-white px-2 text-center text-[12px] font-bold leading-4 text-[#334155] shadow-[0_10px_24px_rgba(15,23,42,0.05)]"
+    >
+      <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#ecfdf3] text-[#16a34a]">
+        <Icon className="h-4.5 w-4.5" />
+      </span>
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function OnlineConsultRecord({ consult }: { consult: OnlineConsult }) {
+  return (
+    <article className="rounded-[24px] border border-[#d8eadf] bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-[16px] font-bold text-[#10233f]">
+            {consult.doctorName}
+          </h3>
+          <p className="mt-1 text-[14px] text-[#64748b]">
+            {consult.specialty} · {consult.type} · {consult.date}
+          </p>
+        </div>
+        <span
+          className={`rounded-full px-3 py-1 text-[12px] font-bold ${
+            consult.status === "Đang kết nối"
+              ? "bg-[#eff6ff] text-[#2563eb]"
+              : "bg-[#f1f5f9] text-[#475569]"
+          }`}
+        >
+          {consult.status}
+        </span>
+      </div>
+    </article>
+  );
+}
+
+function DoctorMiniCard({
+  doctor,
+  onChat,
+}: {
+  doctor: Doctor;
+  onChat: () => void;
+}) {
+  return (
+    <article className="w-45 shrink-0 rounded-[24px] border border-[#d8eadf] bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+      <h3 className="text-[15px] font-bold leading-5 text-[#10233f]">
+        {doctor.name}
+      </h3>
+      <p className="mt-1 text-[13px] text-[#64748b]">{doctor.specialty}</p>
+      <div className="mt-3 flex items-center justify-between text-[12px] font-bold">
+        <span className="text-[#b45309]">⭐ {doctor.rating}</span>
+        <span className="rounded-full bg-[#ecfdf3] px-2 py-1 text-[#16a34a]">
+          {doctor.availability}
+        </span>
+      </div>
+      <button
+        type="button"
+        onClick={onChat}
+        className="mt-3 min-h-10 w-full rounded-2xl bg-[#16a34a] text-sm font-bold text-white"
+      >
+        Chat
+      </button>
+    </article>
+  );
+}
+
+function MyDoctorCard({
+  doctor,
+  onChat,
+}: {
+  doctor: Doctor;
+  onChat: () => void;
+}) {
+  return (
+    <article className="rounded-[24px] border border-[#d8eadf] bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-[16px] font-bold text-[#10233f]">{doctor.name}</h3>
+          <p className="mt-1 text-[14px] text-[#64748b]">
+            {doctor.specialty} · Lần cuối: {doctor.lastConsult}
+          </p>
+        </div>
+        <span className="rounded-full bg-[#ecfdf3] px-3 py-1 text-[12px] font-bold text-[#16a34a]">
+          {doctor.availability}
+        </span>
+      </div>
+      <button
+        type="button"
+        onClick={onChat}
+        className="mt-3 min-h-10 w-full rounded-2xl border border-[#d8eadf] bg-white text-sm font-bold text-[#334155]"
+      >
+        Nhắn tin lại
+      </button>
+    </article>
+  );
+}
+
+function OnlineConsultSheet({
+  selectedType,
+  onSelectType,
+  onContinue,
+}: {
+  selectedType: OnlineConsultType;
+  onSelectType: (type: OnlineConsultType) => void;
+  onContinue: () => void;
+}) {
+  return (
+    <div className="pr-9">
+      <SheetTitle
+        eyebrow="Tư vấn online"
+        title="Bạn muốn trao đổi với bác sĩ bằng cách nào?"
+      />
+      <div className="mt-4 grid gap-2">
+        {onlineConsultOptions.map((item) => (
+          <button
+            key={item.type}
+            type="button"
+            onClick={() => onSelectType(item.type)}
+            className={`rounded-2xl border px-3 py-3 text-left ${
+              selectedType === item.type
+                ? "border-[#bbf7d0] bg-[#ecfdf3]"
+                : "border-[#d8eadf] bg-white"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold text-[#10233f]">{item.type}</p>
+                <p className="mt-1 text-[13px] text-[#64748b]">
+                  {item.description}
+                </p>
+              </div>
+              <span className="rounded-full bg-[#f8fbfd] px-3 py-1 text-[12px] font-bold text-[#16a34a]">
+                {item.responseTime}
+              </span>
+            </div>
+          </button>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={onContinue}
+        className="mt-4 min-h-12 w-full rounded-2xl bg-[#16a34a] text-sm font-bold text-white"
+      >
+        Tiếp tục
+      </button>
+    </div>
+  );
+}
+
+function DoctorMatchSheet({
+  doctor,
+  type,
+  onConnect,
+}: {
+  doctor: Doctor;
+  type: OnlineConsultType;
+  onConnect: () => void;
+}) {
+  return (
+    <div className="pr-9">
+      <SheetTitle
+        eyebrow="Bác sĩ phù hợp"
+        title={`Kết nối ${doctor.name}`}
+      />
+      <div className="mt-4 rounded-[24px] border border-[#d8eadf] bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-[17px] font-bold text-[#10233f]">
+              {doctor.name}
+            </h3>
+            <p className="mt-1 text-[14px] text-[#64748b]">
+              {doctor.specialty} · ⭐ {doctor.rating}
+            </p>
+          </div>
+          <span className="rounded-full bg-[#ecfdf3] px-3 py-1 text-[12px] font-bold text-[#16a34a]">
+            {doctor.availability}
+          </span>
+        </div>
+        <div className="mt-3 rounded-2xl bg-[#f8fbfd] px-3 py-3 text-[13px] leading-5 text-[#475569]">
+          AI đã dùng dữ liệu từ consultation hoặc lựa chọn của bạn để chuẩn bị
+          kết nối. Hình thức tư vấn: {type}.
+        </div>
+        <button
+          type="button"
+          onClick={onConnect}
+          className="mt-4 min-h-12 w-full rounded-2xl bg-[#16a34a] text-sm font-bold text-white"
+        >
+          Bắt đầu kết nối
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DoctorDirectorySheet({
+  doctors,
+  filter,
+  onFilterChange,
+  onChat,
+  onVideo,
+}: {
+  doctors: Doctor[];
+  filter: string;
+  onFilterChange: (filter: string) => void;
+  onChat: (doctor: Doctor) => void;
+  onVideo: (doctor: Doctor) => void;
+}) {
+  return (
+    <div className="pr-9">
+      <SheetTitle eyebrow="Tìm bác sĩ" title="Chọn bác sĩ để tư vấn" />
+      <div className="-mx-1 mt-4 flex gap-2 overflow-x-auto px-1 pb-1">
+        {doctorSpecialties.map((item) => (
+          <button
+            key={item}
+            type="button"
+            onClick={() => onFilterChange(item)}
+            className={`min-h-9 shrink-0 rounded-full px-3 text-[12px] font-bold ${
+              filter === item
+                ? "bg-[#16a34a] text-white"
+                : "border border-[#d8eadf] bg-white text-[#334155]"
+            }`}
+          >
+            {item}
+          </button>
+        ))}
+      </div>
+      <div className="mt-4 grid gap-3">
+        {doctors.map((doctor) => (
+          <article
+            key={doctor.id}
+            className="rounded-[24px] border border-[#d8eadf] bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-[16px] font-bold text-[#10233f]">
+                  {doctor.name}
+                </h3>
+                <p className="mt-1 text-[14px] text-[#64748b]">
+                  {doctor.specialty} · ⭐ {doctor.rating}
+                </p>
+                <p className="mt-1 text-[13px] text-[#94a3b8]">
+                  {doctor.consults}
+                </p>
+              </div>
+              <span className="rounded-full bg-[#ecfdf3] px-3 py-1 text-[12px] font-bold text-[#16a34a]">
+                {doctor.availability}
+              </span>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => onChat(doctor)}
+                className="min-h-10 rounded-2xl bg-[#16a34a] text-sm font-bold text-white"
+              >
+                Chat
+              </button>
+              <button
+                type="button"
+                onClick={() => onVideo(doctor)}
+                className="min-h-10 rounded-2xl border border-[#d8eadf] bg-white text-sm font-bold text-[#334155]"
+              >
+                Video call
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RecommendationReasonSheet({
+  recommendation,
+}: {
+  recommendation: Recommendation;
+}) {
+  return (
+    <div className="pr-9">
+      <SheetTitle eyebrow="Vì sao?" title="Lý do AI khuyến nghị khám" />
+      <div className="mt-4 rounded-[24px] border border-[#fecaca] bg-[#fff7f7] p-4">
+        <h3 className="text-[17px] font-bold text-[#10233f]">
+          {recommendation.title}
+        </h3>
+        <div className="mt-3 grid gap-2">
+          {recommendation.summary.map((item) => (
+            <div key={item} className="flex items-start gap-2 text-[14px] text-[#475569]">
+              <span className="mt-2 h-2 w-2 rounded-full bg-[#dc2626]" />
+              <span>{item}</span>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 text-[13px] font-semibold text-[#b45309]">
+          AI đề xuất khám {recommendation.specialty} {recommendation.timeframe}.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function RecommendationCard({
+  recommendation,
+  onBook,
+  onExplain,
+}: {
+  recommendation: Recommendation;
+  onBook: () => void;
+  onExplain: () => void;
+}) {
+  const danger = recommendation.tone === "danger";
+
+  return (
+    <article
+      className={`rounded-[24px] border p-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)] ${
+        danger ? "border-[#fecaca] bg-[#fff7f7]" : "border-[#fde68a] bg-[#fffbeb]"
+      }`}
+    >
+      <p
+        className={`text-[12px] font-bold uppercase tracking-[0.12em] ${
+          danger ? "text-[#dc2626]" : "text-[#b45309]"
+        }`}
+      >
+        AI khuyến nghị khám
+      </p>
+      <h3 className="mt-1 text-[17px] font-bold text-[#10233f]">
+        {recommendation.title}
+      </h3>
+      <p className="mt-2 text-[14px] leading-6 text-[#475569]">
+        AI đề xuất: Khám {recommendation.specialty} {recommendation.timeframe}
+      </p>
+      <div className="mt-3 grid grid-cols-[1fr_auto] gap-2">
+        <button
+          type="button"
+          onClick={onBook}
+          className="min-h-11 rounded-2xl bg-[#16a34a] text-sm font-semibold text-white"
+        >
+          Đặt lịch
+        </button>
+        <button
+          type="button"
+          onClick={onExplain}
+          className="min-h-11 rounded-2xl border border-[#fecaca] bg-white px-4 text-sm font-semibold text-[#dc2626]"
+        >
+          Giải thích
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function AppointmentCard({
+  appointment,
+  onDetail,
+  onReschedule,
+}: {
+  appointment: Appointment;
+  onDetail: () => void;
+  onReschedule: () => void;
+}) {
+  return (
+    <article className="rounded-[24px] border border-[#d8eadf] bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-[17px] font-bold text-[#10233f]">
+            {appointment.doctorName}
+          </h3>
+          <p className="mt-1 text-[14px] text-[#64748b]">
+            {appointment.specialty}
+          </p>
+        </div>
+        <span className="rounded-full bg-[#ecfdf3] px-3 py-1 text-[12px] font-bold text-[#16a34a]">
+          {appointment.mode}
+        </span>
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2 rounded-2xl bg-[#f8fbfd] px-3 py-3 text-[14px] text-[#334155]">
+        <span className="flex items-center gap-2">
+          <Clock3 className="h-4 w-4 text-[#16a34a]" />
+          {appointment.time}
+        </span>
+        <span className="flex items-center justify-end gap-2">
+          <CalendarDays className="h-4 w-4 text-[#16a34a]" />
+          {appointment.date}
+        </span>
+      </div>
+      <div className="mt-3 rounded-2xl bg-[#f8fbfd] px-3 py-2 text-[13px] leading-5 text-[#64748b]">
+        <span className="font-semibold text-[#334155]">Lý do khám: </span>
+        {appointment.reason.replace("Từ consultation: ", "").replace("Từ AI recommendation: ", "")}
+      </div>
+      <div className="mt-3 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          onClick={onDetail}
+          className="min-h-10 rounded-2xl border border-[#d8eadf] bg-white text-sm font-semibold text-[#334155]"
+        >
+          Chi tiết
+        </button>
+        <button
+          type="button"
+          onClick={onReschedule}
+          className="min-h-10 rounded-2xl bg-[#f1f5f9] text-sm font-semibold text-[#475569]"
+        >
+          Đổi lịch
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function CompletedCard({
+  appointment,
+  onDetail,
+}: {
+  appointment: Appointment;
+  onDetail: () => void;
+}) {
+  return (
+    <article className="rounded-[24px] border border-[#d8eadf] bg-white p-4 opacity-80 shadow-[0_10px_24px_rgba(15,23,42,0.04)]">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-[16px] font-bold text-[#10233f]">
+            {appointment.doctorName}
+          </h3>
+          <p className="mt-1 text-[14px] text-[#64748b]">
+            {appointment.specialty} · {appointment.date}
+          </p>
+        </div>
+        <span className="rounded-full bg-[#f1f5f9] px-3 py-1 text-[12px] font-bold text-[#475569]">
+          Đã khám
+        </span>
+      </div>
+      <button
+        type="button"
+        onClick={onDetail}
+        className="mt-3 min-h-10 w-full rounded-2xl border border-[#d8eadf] bg-white text-sm font-semibold text-[#334155]"
+      >
+        Biên bản khám
+      </button>
+    </article>
+  );
+}
+
+function BookingSheet({
+  specialty,
+  mode,
+  onSpecialtyChange,
+  onModeChange,
+  onUnknown,
+  onConfirm,
+}: {
+  specialty: string | null;
+  mode: AppointmentMode;
+  onSpecialtyChange: (specialty: string) => void;
+  onModeChange: (mode: AppointmentMode) => void;
+  onUnknown: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <div className="pr-9">
+      <SheetTitle eyebrow="Đặt lịch" title="Bạn muốn khám chuyên khoa nào?" />
+      <div className="mt-4 grid gap-2">
+        {specialties.map((item) => (
+          <ChoiceButton
+            key={item}
+            active={specialty === item}
+            label={item}
+            onClick={() => onSpecialtyChange(item)}
+          />
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={onUnknown}
+        className="mt-3 min-h-11 w-full rounded-2xl border border-[#d8eadf] bg-white text-sm font-semibold text-[#334155]"
+      >
+        Tôi không biết khám khoa nào
+      </button>
+
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        {(["Online", "Offline"] as const).map((item) => (
+          <button
+            key={item}
+            type="button"
+            onClick={() => onModeChange(item)}
+            className={`min-h-11 rounded-2xl text-sm font-bold ${
+              mode === item
+                ? "bg-[#16a34a] text-white"
+                : "border border-[#d8eadf] bg-white text-[#334155]"
+            }`}
+          >
+            {item}
+          </button>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={onConfirm}
+        disabled={!specialty}
+        className="mt-4 min-h-12 w-full rounded-2xl bg-[#16a34a] text-sm font-bold text-white disabled:bg-[#d8e7ef] disabled:text-[#94a3b8]"
+      >
+        Tiếp tục
+      </button>
+    </div>
+  );
+}
+
+function UnknownSpecialtySheet({
+  onSelect,
+}: {
+  onSelect: (specialty: string) => void;
+}) {
+  return (
+    <div className="pr-9">
+      <SheetTitle
+        eyebrow="AI chọn chuyên khoa"
+        title="Bạn đang gặp vấn đề gì?"
+      />
+      <div className="mt-4 grid gap-2">
+        {symptomRouting.map((item) => (
+          <ChoiceButton
+            key={item.symptom}
+            label={item.symptom}
+            onClick={() => onSelect(item.specialty)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AppointmentDetail({
+  appointment,
+  onClose,
+}: {
+  appointment: Appointment;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center px-3 pb-3">
+      <button
+        type="button"
+        aria-label="Đóng chi tiết lịch khám"
+        className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="relative w-full max-w-md rounded-[28px] bg-white p-4 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Đóng"
+          className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-[#f8fbfd] text-[#64748b]"
+        >
+          <X className="h-4.5 w-4.5" />
+        </button>
+        <SheetTitle eyebrow="Appointment detail" title={`Khám ${appointment.specialty}`} />
+        <div className="mt-4 grid gap-2 text-[14px]">
+          <InfoRow label="Doctor" value={appointment.doctorName} />
+          <InfoRow label="Date" value={`${appointment.date} · ${appointment.time}`} />
+          <InfoRow label="Location" value={appointment.mode} />
+          <InfoRow label="Reason" value={appointment.reason} />
+        </div>
+        <div className="mt-4 rounded-2xl border border-[#d8eadf] bg-[#f8fbfd] p-3">
+          <p className="text-[13px] font-bold text-[#10233f]">
+            AI Summary - Tóm tắt cho bác sĩ
+          </p>
+          <div className="mt-2 grid gap-2">
+            {appointment.aiSummary.map((item) => (
+              <div key={item} className="flex items-start gap-2 text-[13px] text-[#475569]">
+                <span className="mt-1 h-2 w-2 rounded-full bg-[#16a34a]" />
+                <span>{item}</span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-[13px] font-semibold text-[#b45309]">
+            Nguy cơ: {appointment.risk}
+          </p>
+        </div>
+        {appointment.status === "completed" ? (
+          <div className="mt-4 rounded-2xl bg-[#ecfdf3] px-3 py-3 text-[13px] leading-5 text-[#166534]">
+            Bác sĩ đã khám xong. Bạn có muốn AI tiếp tục theo dõi tình trạng này không?
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button className="min-h-10 rounded-xl bg-[#16a34a] text-white" type="button">
+                Có
+              </button>
+              <button className="min-h-10 rounded-xl bg-white text-[#334155]" type="button">
+                Không
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function BottomSheet({
+  children,
+  onClose,
+}: {
+  children: ReactNode;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center px-3 pb-3">
+      <button
+        type="button"
+        aria-label="Đóng"
+        className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="relative max-h-[88vh] w-full max-w-md overflow-y-auto rounded-[28px] bg-white p-4 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
+        <button
+          type="button"
+          aria-label="Đóng"
+          onClick={onClose}
+          className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-[#f8fbfd] text-[#64748b]"
+        >
+          <X className="h-4.5 w-4.5" />
+        </button>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function SheetTitle({
+  eyebrow,
+  title,
+}: {
+  eyebrow: string;
+  title: string;
+}) {
+  return (
+    <>
+      <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#16a34a]">
+        {eyebrow}
+      </p>
+      <h2 className="mt-1 text-[20px] font-bold text-[#10233f]">{title}</h2>
+    </>
+  );
+}
+
+function ChoiceButton({
+  label,
+  active = false,
+  onClick,
+}: {
+  label: string;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex min-h-12 items-center justify-between rounded-2xl border px-3 text-left text-sm font-semibold ${
+        active
+          ? "border-[#bbf7d0] bg-[#ecfdf3] text-[#16a34a]"
+          : "border-[#d8eadf] bg-[#f8fbfd] text-[#334155]"
+      }`}
+    >
+      {label}
+      <ChevronRight className="h-4 w-4" />
+    </button>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-2xl bg-[#f8fbfd] px-3 py-2">
+      <span className="text-[#64748b]">{label}</span>
+      <span className="text-right font-semibold text-[#10233f]">{value}</span>
+    </div>
   );
 }

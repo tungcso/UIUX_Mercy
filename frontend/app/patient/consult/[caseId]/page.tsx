@@ -1,23 +1,48 @@
-import { buildConsultCase } from "../_components/consult-case-data";
+import {
+  buildConsultCase,
+  consultCases,
+} from "../_components/consult-case-data";
 import ConsultationChatScreen from "../_components/consultation-chat-screen";
 
-export default function ConsultationCasePage({
+export default async function ConsultationCasePage({
   params,
   searchParams,
 }: {
-  params: { caseId: string };
-  searchParams?: { topic?: string; mode?: string; emergency?: string };
+  params: Promise<{ caseId: string }>;
+  searchParams?: Promise<{
+    topic?: string;
+    mode?: string;
+    emergency?: string;
+    review?: string;
+  }>;
 }) {
-  const consultCase = buildConsultCase(params.caseId, {
-    topic: searchParams?.topic,
-    mode:
-      searchParams?.mode === "doctor"
-        ? "doctor"
-        : searchParams?.mode === "emergency"
-          ? "emergency"
-          : "ai",
-    emergency: searchParams?.emergency === "1",
-  });
+  const resolvedParams = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const reviewCase =
+    consultCases.find((item) => item.id === "follow-up-meds") ??
+    consultCases[0];
 
-  return <ConsultationChatScreen consultCase={consultCase} />;
+  const consultCase =
+    resolvedSearchParams?.review === "1"
+      ? reviewCase
+      : buildConsultCase(resolvedParams.caseId, {
+          topic: resolvedSearchParams?.topic,
+          mode:
+            resolvedSearchParams?.mode === "doctor"
+              ? "doctor"
+              : resolvedSearchParams?.mode === "emergency"
+                ? "emergency"
+                : "ai",
+          emergency: resolvedSearchParams?.emergency === "1",
+        });
+
+  return (
+    <ConsultationChatScreen
+      consultCase={consultCase}
+      readOnly={
+        resolvedSearchParams?.review === "1" ||
+        consultCase.status.toLowerCase().includes("hoàn")
+      }
+    />
+  );
 }

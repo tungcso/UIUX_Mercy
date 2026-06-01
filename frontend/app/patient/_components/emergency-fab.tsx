@@ -7,7 +7,6 @@ import {
   AlertTriangle,
   BellRing,
   Bot,
-  Callout,
   ChevronRight,
   CircleAlert,
   Clock3,
@@ -79,6 +78,7 @@ export default function EmergencyFab() {
 
   const emergencyMode = searchParams.get("emergency") === "1";
   const riskMode = searchParams.get("risk") === "1";
+  const highlighted = emergencyMode || riskMode;
 
   useEffect(() => {
     if (emergencyMode || riskMode) {
@@ -89,14 +89,14 @@ export default function EmergencyFab() {
   const openAiEmergency = () => {
     setLoadingChoice("ai");
     setTimeout(() => {
-      router.push("/patient/consult?mode=ai&emergency=1");
+      router.push("/patient/consult/emergency-new?mode=ai&emergency=1");
     }, 280);
   };
 
   const openDoctorEmergency = () => {
     setLoadingChoice("doctor");
     setTimeout(() => {
-      router.push("/patient/consult?mode=doctor&emergency=1");
+      router.push("/patient/consult/emergency-new?mode=doctor&emergency=1");
     }, 280);
   };
 
@@ -149,15 +149,21 @@ export default function EmergencyFab() {
         </div>
       ) : null}
 
-      <div className="fixed bottom-25 left-1/2 z-40 w-full max-w-97.5 -translate-x-1/2 px-4 sm:px-4">
+      <div
+        className="fixed left-1/2 z-50 w-full max-w-97.5 -translate-x-1/2 px-6"
+        style={{
+          bottom: "calc(env(safe-area-inset-bottom, 6px) + 4.25rem)",
+        }}
+      >
         <button
           type="button"
           aria-label="Mở hỗ trợ khẩn"
           onClick={() => setIsOpen(true)}
-          className="group ml-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#fb923c] text-white shadow-[0_0_0_6px_rgba(255,255,255,0.88),0_18px_42px_rgba(249,115,22,0.34),0_0_22px_rgba(249,115,22,0.28)] transition duration-200 hover:scale-105 active:scale-95"
+          className={`emergency-fab-motion ml-auto flex h-14 w-14 items-center justify-center rounded-full text-white shadow-[0_12px_26px_rgba(220,38,38,0.18)] transition ${
+            highlighted ? "animate-pulse bg-[#dc2626]" : "bg-[#fb923c]"
+          }`}
         >
-          <span className="absolute inline-flex h-14 w-14 animate-ping rounded-full bg-[#fb923c]/30 opacity-60" />
-          <EmergencyIcon className="relative h-6 w-6" />
+          <EmergencyIcon className="h-6 w-6" />
         </button>
       </div>
 

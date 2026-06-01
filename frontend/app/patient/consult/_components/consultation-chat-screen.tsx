@@ -1,17 +1,61 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentType,
+  type ReactNode,
+} from "react";
 import { useRouter } from "next/navigation";
-import { MessageCircle } from "lucide-react";
+import {
+  AlertTriangle,
+  Bot,
+  Camera,
+  FileText,
+  Image as ImageIcon,
+  Loader2,
+  MapPin,
+  Mic,
+  PhoneCall,
+  Pill,
+  Stethoscope,
+  Upload,
+  X,
+} from "lucide-react";
 import ChatHeader from "./ChatHeader";
 import ConversationList from "./ConversationList";
-import EmergencyBanner from "./EmergencyBanner";
 import InputBar from "./InputBar";
-import QuickReplies from "./QuickReplies";
 import {
+  type ConsultAction,
   type ConsultCase,
   type ConsultMessage,
 } from "./consult-case-data";
+import { triageQuickReplies } from "./triage-quick-replies";
+
+type AiPhase = "analyzing" | "evaluating" | "generating" | "image" | null;
+type SheetState =
+  | "case-info"
+  | "status"
+  | "attachments"
+  | "voice"
+  | "emergency"
+  | null;
+type UploadIntent = "image" | "lab" | "medical-file";
+
+const storedConsultCasesKey = "mercy-patient-consult-cases";
+
+const dangerousSymptoms = [
+  "cannot breathe",
+  "chest pain",
+  "fainted",
+  "bleeding heavily",
+  "khó thở",
+  "đau ngực",
+  "ngất",
+  "chảy máu nhiều",
+];
 
 function getTimeLabel() {
   const now = new Date();
@@ -21,198 +65,1578 @@ function getTimeLabel() {
   });
 }
 
-function CaseContextBanner({ consultCase }: { consultCase: ConsultCase }) {
-  const isEmergency = consultCase.severity === "high";
+function detectEmergency(text: string) {
+  const lowerText = text.toLowerCase();
+  return dangerousSymptoms.some((keyword) => lowerText.includes(keyword));
+}
 
+function isPersistableConsultCase(caseId: string) {
+  return caseId === "new" || /^(ai|doctor|emergency)-\d+$/.test(caseId);
+}
+
+function persistOpenedConsultCase(consultCase: ConsultCase) {
+  if (typeof window === "undefined") return;
+
+  try {
+    const raw = window.localStorage.getItem(storedConsultCasesKey);
+    const storedCases = raw ? (JSON.parse(raw) as ConsultCase[]) : [];
+    const safeStoredCases = Array.isArray(storedCases) ? storedCases : [];
+    const nextCases = [
+      consultCase,
+      ...safeStoredCases.filter((caseItem) => caseItem.id !== consultCase.id),
+    ];
+
+    window.localStorage.setItem(storedConsultCasesKey, JSON.stringify(nextCases));
+  } catch {
+    // Ignore storage failures; the active chat still works.
+  }
+}
+
+function readStoredConsultCase(caseId: string) {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const raw = window.localStorage.getItem(storedConsultCasesKey);
+    const storedCases = raw ? (JSON.parse(raw) as ConsultCase[]) : [];
+    if (!Array.isArray(storedCases)) return null;
+    return storedCases.find((caseItem) => caseItem.id === caseId) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function buildEmergencyMessage(): ConsultMessage {
+  return {
+    id: `emergency-${Date.now()}`,
+    role: "assistant",
+    kind: "emergency",
+    title: "Triệu chứng có thể cần xử trí khẩn",
+    text: "Nội dung bạn vừa nhập có dấu hiệu nguy hiểm. Nếu triệu chứng đang nặng lên, hãy kết nối bác sĩ hoặc gọi cấp cứu ngay.",
+    time: getTimeLabel(),
+    actions: [
+      { label: "AI hỗ trợ khẩn", value: "urgent-ai", tone: "danger" },
+      { label: "Kết nối bác sĩ", value: "connect-doctor", tone: "primary" },
+      { label: "Gọi 115", value: "call-emergency", tone: "danger" },
+    ],
+  };
+}
+
+function includesAny(text: string, keywords: string[]) {
+  return keywords.some((keyword) => text.includes(keyword));
+}
+
+function buildRecommendation(
+  title: string,
+  text: string,
+  actions: ConsultAction[] = [
+    { label: "Đặt lịch khám", value: "book", tone: "primary" },
+    { label: "Tìm bác sĩ", value: "find-doctors" },
+  ],
+): ConsultMessage {
+  return {
+    id: `assistant-${Date.now()}`,
+    role: "assistant",
+    kind: "recommendation",
+    title,
+    text,
+    time: getTimeLabel(),
+    actions,
+  };
+}
+
+function buildQuestion(
+  text: string,
+  quickReplies: string[],
+): ConsultMessage {
+  return {
+    id: `assistant-${Date.now()}`,
+    role: "assistant",
+    kind: "question",
+    text,
+    time: getTimeLabel(),
+    quickReplies,
+  };
+}
+
+function getConversationText(messages: ConsultMessage[]) {
+  return messages
+    .map((message) => `${message.title ?? ""} ${message.text}`)
+    .join(" ")
+    .toLowerCase();
+}
+
+type SymptomScenario =
+  | "chest-pain"
+  | "breathing"
+  | "fever"
+  | "cough"
+  | "headache"
+  | "abdominal-pain"
+  | "condition"
+  | "doctor"
+  | "other"
+  | "emergency-menu"
+  | "medicine"
+  | "lab"
+  | null;
+
+function detectScenario(contextText: string): SymptomScenario {
+  if (includesAny(contextText, ["emergency case", "ngất xỉu", "co giật", "chảy máu nhiều"])) {
+    return "emergency-menu";
+  }
+  if (includesAny(contextText, ["hỏi về bệnh", "chẩn đoán bệnh", "mức độ nguy hiểm", "cách điều trị"])) {
+    return "condition";
+  }
+  if (includesAny(contextText, ["gặp bác sĩ", "khám tim mạch", "khám thần kinh", "khám hô hấp", "khám tiêu hóa", "khám khoa"])) {
+    return "doctor";
+  }
+  if (includesAny(contextText, ["khác", "không chắc triệu chứng", "hỏi nhiều vấn đề", "ai hướng dẫn"])) {
+    return "other";
+  }
+  if (includesAny(contextText, ["đau ngực", "tức ngực"])) return "chest-pain";
+  if (includesAny(contextText, ["khó thở", "thở hụt", "hụt hơi"])) {
+    return "breathing";
+  }
+  if (includesAny(contextText, ["đau bụng", "bụng"])) return "abdominal-pain";
+  if (includesAny(contextText, ["đau đầu", "nhức đầu"])) return "headache";
+  if (includesAny(contextText, ["sốt", "nóng", "ớn lạnh", "38", "39"])) {
+    return "fever";
+  }
+  if (includesAny(contextText, ["ho", "đờm", "đau họng", "sổ mũi"])) {
+    return "cough";
+  }
+  if (includesAny(contextText, ["thuốc", "paracetamol", "liều"])) {
+    return "medicine";
+  }
+  if (includesAny(contextText, ["xét nghiệm", "máu", "pdf", "kết quả"])) {
+    return "lab";
+  }
+  return null;
+}
+
+function buildFollowUpRecommendation(
+  title: string,
+  text: string,
+): ConsultMessage {
+  return buildRecommendation(title, `${text}\n\nBạn muốn làm gì tiếp theo?`, [
+    { label: "Đặt lịch gặp bác sĩ", value: "book", tone: "primary" },
+    { label: "Bác sĩ tư vấn", value: "connect-doctor", tone: "primary" },
+    { label: "Tiếp tục tư vấn", value: "continue-consult" },
+  ]);
+}
+
+function buildSymptomReply(
+  text: string,
+  messages: ConsultMessage[],
+): ConsultMessage | null {
+  const lowerText = text.toLowerCase();
+  const conversationText = getConversationText(messages);
+  const contextText = `${conversationText} ${lowerText}`;
+  const scenario = detectScenario(contextText);
+  const patientMessageCount = messages.filter(
+    (message) => message.role === "patient",
+  ).length;
+  const hasDuration = includesAny(contextText, [
+    "hôm nay",
+    "giờ",
+    "ngày",
+    "1-3",
+    ">3",
+    "vài",
+    "mới",
+  ]);
+  const hasSeverity = includesAny(contextText, [
+    "nhẹ",
+    "vừa",
+    "nặng",
+    "tăng",
+    "giảm",
+    "không đỡ",
+    "dữ dội",
+  ]);
+  const hasRedFlag = includesAny(contextText, [
+    "khó thở",
+    "đau ngực",
+    "choáng",
+    "ngất",
+    "lơ mơ",
+    "mờ mắt",
+    "yếu",
+    "liệt",
+    "nôn nhiều",
+    ">39",
+    "39",
+  ]);
+  const hasFeverNumber = includesAny(contextText, ["<38", "38-39", ">39", "38", "39"]);
+  const hasCoughType = includesAny(contextText, ["ho khan", "có đờm", "đờm"]);
+  const hasHeadacheAssociated = includesAny(contextText, [
+    "chóng mặt",
+    "buồn nôn",
+    "mờ mắt",
+    "đau tăng",
+  ]);
+
+  if ((scenario === "chest-pain" || scenario === "breathing") && hasRedFlag) {
+    return buildEmergencyMessage();
+  }
+
+  if (scenario === "emergency-menu") {
+    if (includesAny(contextText, ["đau ngực"])) {
+      if (patientMessageCount === 1) {
+        return buildQuestion("Bạn có khó thở không?", [
+          "Không",
+          "Có nhẹ",
+          "Có rõ rệt",
+          "Rất khó thở",
+        ]);
+      }
+      if (patientMessageCount === 2) {
+        return buildQuestion("Cơn đau hiện tại ở mức nào?", [
+          "Nhẹ",
+          "Trung bình",
+          "Nặng",
+          "Rất nặng",
+        ]);
+      }
+    }
+
+    if (includesAny(contextText, ["rất khó thở", "rất nặng", "ngất", "co giật", "chảy máu"])) {
+      return buildRecommendation(
+        "Dấu hiệu có thể cần xử trí khẩn",
+        "Dấu hiệu hiện tại có thể cần được đánh giá y tế khẩn cấp.",
+        [
+          { label: "Gọi cấp cứu", value: "call-emergency", tone: "danger" },
+          { label: "Tìm bệnh viện gần nhất", value: "find-hospital", tone: "primary" },
+          { label: "Liên hệ bác sĩ", value: "connect-doctor", tone: "primary" },
+          { label: "Tiếp tục trả lời", value: "continue-consult" },
+        ],
+      );
+    }
+
+    return buildQuestion(
+      "Bạn đang gặp tình trạng nào cần hỗ trợ khẩn?",
+      ["Đau ngực", "Khó thở", "Ngất xỉu", "Co giật", "Chảy máu nhiều", "Khác"],
+    );
+  }
+
+  if (scenario === "condition") {
+    if (includesAny(lowerText, ["tôi vừa được chẩn đoán bệnh"])) {
+      return buildQuestion("Bạn được chẩn đoán bệnh gì?", [
+        "Tiểu đường",
+        "Tăng huyết áp",
+        "Viêm họng",
+        "Viêm dạ dày",
+        "Khác",
+      ]);
+    }
+
+    if (includesAny(lowerText, ["muốn hiểu triệu chứng"])) {
+      return buildQuestion("Triệu chứng nào bạn muốn tìm hiểu?", [
+        "Đau đầu",
+        "Ho",
+        "Sốt",
+        "Đau ngực",
+        "Khó thở",
+        "Khác",
+      ]);
+    }
+
+    if (patientMessageCount <= 1) {
+      return buildQuestion("Bạn muốn hỏi về điều gì?", [
+        "Tôi vừa được chẩn đoán bệnh",
+        "Muốn hiểu triệu chứng",
+        "Muốn biết mức độ nguy hiểm",
+        "Muốn biết cách điều trị",
+        "Muốn biết khi nào cần đi khám",
+      ]);
+    }
+
+    return buildFollowUpRecommendation(
+      "Giải thích sơ bộ về bệnh",
+      "Mình đã ghi nhận nội dung bạn quan tâm. AI có thể giải thích ý nghĩa, mức độ cần theo dõi và các dấu hiệu nên đi khám, nhưng chẩn đoán/kế hoạch điều trị cuối cùng cần bác sĩ đối chiếu với triệu chứng, tiền sử và xét nghiệm.",
+    );
+  }
+
+  if (scenario === "doctor") {
+    if (includesAny(lowerText, ["tôi chưa biết khám khoa nào"])) {
+      return buildQuestion("Bạn đang gặp vấn đề gì?", [
+        "Đau đầu",
+        "Đau ngực",
+        "Ho kéo dài",
+        "Đau bụng",
+        "Mất ngủ",
+        "Khác",
+      ]);
+    }
+
+    if (includesAny(contextText, ["đau ngực", "khám tim mạch"])) {
+      return buildRecommendation("Đề xuất chuyên khoa", "Tôi đề xuất chuyên khoa phù hợp là Tim mạch.", [
+        { label: "Đặt lịch ngay", value: "book", tone: "primary" },
+        { label: "Xem bác sĩ phù hợp", value: "connect-doctor", tone: "primary" },
+        { label: "Tiếp tục tư vấn AI", value: "continue-consult" },
+      ]);
+    }
+
+    if (includesAny(contextText, ["đau đầu", "khám thần kinh", "mất ngủ"])) {
+      return buildRecommendation("Đề xuất chuyên khoa", "Tôi đề xuất chuyên khoa phù hợp là Thần kinh.", [
+        { label: "Đặt lịch ngay", value: "book", tone: "primary" },
+        { label: "Xem bác sĩ phù hợp", value: "connect-doctor", tone: "primary" },
+        { label: "Tiếp tục tư vấn AI", value: "continue-consult" },
+      ]);
+    }
+
+    if (includesAny(contextText, ["ho", "khám hô hấp"])) {
+      return buildRecommendation("Đề xuất chuyên khoa", "Tôi đề xuất chuyên khoa phù hợp là Hô hấp.", [
+        { label: "Đặt lịch ngay", value: "book", tone: "primary" },
+        { label: "Xem bác sĩ phù hợp", value: "connect-doctor", tone: "primary" },
+        { label: "Tiếp tục tư vấn AI", value: "continue-consult" },
+      ]);
+    }
+
+    if (includesAny(contextText, ["đau bụng", "khám tiêu hóa"])) {
+      return buildRecommendation("Đề xuất chuyên khoa", "Tôi đề xuất chuyên khoa phù hợp là Tiêu hóa.", [
+        { label: "Đặt lịch ngay", value: "book", tone: "primary" },
+        { label: "Xem bác sĩ phù hợp", value: "connect-doctor", tone: "primary" },
+        { label: "Tiếp tục tư vấn AI", value: "continue-consult" },
+      ]);
+    }
+
+    return buildQuestion(
+      "Bạn muốn kết nối theo hướng nào?",
+      [...triageQuickReplies.doctorRouting].slice(0, 5),
+    );
+  }
+
+  if (scenario === "other") {
+    if (includesAny(lowerText, ["tôi không chắc triệu chứng"])) {
+      return buildQuestion("Điều gì làm bạn lo lắng nhất hiện tại?", [
+        "Đau",
+        "Sốt",
+        "Khó thở",
+        "Mệt mỏi",
+        "Kết quả xét nghiệm",
+      ]);
+    }
+
+    if (patientMessageCount <= 1) {
+      return buildQuestion("Hãy chọn cách bắt đầu phù hợp nhất.", [
+        "Tôi không chắc triệu chứng",
+        "Muốn hỏi nhiều vấn đề cùng lúc",
+        "Muốn được AI hướng dẫn",
+        "Nhập nội dung thủ công",
+      ]);
+    }
+
+    return buildQuestion(
+      "Mình sẽ đi từng vấn đề một. Bạn muốn bắt đầu với nhóm nào trước?",
+      ["Đau", "Sốt", "Khó thở", "Mệt mỏi", "Kết quả xét nghiệm"],
+    );
+  }
+
+  if (scenario === "chest-pain") {
+    if (patientMessageCount === 1) {
+      return buildQuestion(
+        "Bạn có khó thở không?",
+        ["Không", "Hơi khó thở", "Khó thở rõ rệt", "Rất khó thở"],
+      );
+    }
+    if (patientMessageCount === 2) {
+      return buildQuestion(
+        "Cơn đau có lan sang vùng nào không?",
+        ["Không", "Tay trái", "Vai", "Hàm", "Lưng"],
+      );
+    }
+    if (patientMessageCount === 3) {
+      return buildQuestion(
+        "Cơn đau xuất hiện khi nào?",
+        ["Vừa mới xảy ra", "Hôm nay", "Vài ngày nay", "Lâu hơn"],
+      );
+    }
+
+    return buildFollowUpRecommendation(
+      "Đánh giá sơ bộ đau ngực",
+      "Nếu đau ngực nhẹ, không lan, không khó thở và không choáng, nguy cơ trước mắt có thể thấp hơn. Bạn nên nghỉ ngơi, tránh gắng sức, theo dõi 30-60 phút và đặt lịch khám nếu còn lặp lại. Nếu đau tăng, lan tay/hàm, khó thở, vã mồ hôi hoặc choáng, hãy gọi cấp cứu ngay.",
+    );
+  }
+
+  if (scenario === "breathing") {
+    if (patientMessageCount === 1) {
+      return buildQuestion(
+        "Khó thở xảy ra trong trường hợp nào?",
+        ["Khi nghỉ ngơi", "Khi vận động", "Khi nằm", "Liên tục"],
+      );
+    }
+    if (patientMessageCount === 2) {
+      return buildQuestion(
+        "Bạn có triệu chứng nào đi kèm không?",
+        ["Đau ngực", "Ho", "Sốt", "Chóng mặt", "Không có"],
+      );
+    }
+
+    return buildFollowUpRecommendation(
+      "Đánh giá sơ bộ khó thở",
+      "Nếu khó thở nhẹ và chỉ xuất hiện khi vận động, bạn nên nghỉ, ngồi thẳng, tránh gắng sức và theo dõi thêm. Nếu khó thở khi nghỉ, nặng lên nhanh, tím môi, đau ngực hoặc không nói được câu dài, cần gọi cấp cứu hoặc kết nối bác sĩ ngay.",
+    );
+  }
+
+  if (scenario === "fever") {
+    if (patientMessageCount === 1) {
+      return buildQuestion(
+        "Nhiệt độ cao nhất bạn đo được là bao nhiêu?",
+        ["Dưới 38°C", "38-39°C", "39-40°C", "Trên 40°C", "Chưa đo"],
+      );
+    }
+    if (patientMessageCount === 2) {
+      return buildQuestion(
+        "Có triệu chứng nào đi kèm không?",
+        ["Ho", "Đau họng", "Đau đầu", "Tiêu chảy", "Không có"],
+      );
+    }
+
+    if (hasRedFlag || includesAny(contextText, ["trên 40", "39-40", "hơn 3 ngày", "lơ mơ"])) {
+      return buildFollowUpRecommendation(
+        "Sốt cần được theo dõi sát",
+        "Bạn có dấu hiệu cần chú ý hơn. Hãy đo nhiệt độ lại, uống đủ nước, nghỉ ngơi và cân nhắc đặt lịch khám trong ngày. Nếu sốt trên 39°C, lơ mơ, khó thở, co giật, phát ban lan nhanh hoặc không hạ sau thuốc hạ sốt đúng liều, cần liên hệ bác sĩ/cấp cứu.",
+      );
+    }
+
+    return buildFollowUpRecommendation(
+      "Hướng xử trí sốt",
+      "Hiện tại có thể theo dõi tại nhà nếu sốt không cao và không có dấu hiệu nguy hiểm. Hãy uống đủ nước, nghỉ ngơi, mặc đồ thoáng, đo nhiệt độ mỗi 4-6 giờ và dùng thuốc hạ sốt đúng liều nếu phù hợp. Nếu sốt kéo dài trên 48 giờ hoặc xuất hiện triệu chứng mới, nên đặt lịch khám.",
+    );
+  }
+
+  if (scenario === "cough") {
+    if (patientMessageCount === 1) {
+      return buildQuestion(
+        "Loại ho nào gần giống nhất?",
+        ["Ho khan", "Ho có đờm", "Ho từng cơn", "Ho về đêm", "Không rõ"],
+      );
+    }
+    if (patientMessageCount === 2) {
+      return buildQuestion(
+        "Bạn có kèm triệu chứng nào sau đây?",
+        ["Sốt", "Đau họng", "Khó thở", "Sổ mũi", "Không có"],
+      );
+    }
+
+    if (hasRedFlag || includesAny(contextText, ["đờm vàng", "đờm xanh", "ho ra máu"])) {
+      return buildFollowUpRecommendation(
+        "Ho cần khám sớm hơn",
+        "Ho kèm sốt cao, khó thở, đau ngực, ho ra máu hoặc đờm vàng/xanh kéo dài nên được bác sĩ đánh giá. Bạn nên uống nước ấm, tránh khói bụi/lạnh và đặt lịch khám Hô hấp nếu triệu chứng không giảm.",
+      );
+    }
+
+    return buildFollowUpRecommendation(
+      "Hướng xử trí ho",
+      "Nếu ho nhẹ, không khó thở và không sốt cao, bạn có thể uống nước ấm, giữ ấm cổ, tránh khói bụi/lạnh và theo dõi thêm. Nếu ho kéo dài trên 7 ngày, sốt cao, đau ngực hoặc khó thở, nên khám chuyên khoa Hô hấp.",
+    );
+  }
+
+  if (scenario === "headache") {
+    if (patientMessageCount === 1) {
+      return buildQuestion(
+        "Mức độ đau hiện tại như thế nào?",
+        ["Nhẹ", "Trung bình", "Khá đau", "Rất đau", "Không chịu nổi"],
+      );
+    }
+    if (patientMessageCount === 2) {
+      return buildQuestion(
+        "Bạn có triệu chứng nào kèm theo không?",
+        ["Buồn nôn", "Chóng mặt", "Sốt", "Mờ mắt", "Không có"],
+      );
+    }
+
+    if (hasRedFlag) {
+      return buildFollowUpRecommendation(
+        "Đau đầu cần theo dõi sát",
+        "Đau đầu kèm mờ mắt, nôn nhiều, yếu/liệt, nói khó, sốt cao hoặc đau tăng nhanh cần được bác sĩ đánh giá sớm. Nếu triệu chứng đang nặng lên, nên đặt lịch khám chuyên khoa Thần kinh hoặc đi cấp cứu tùy mức độ.",
+      );
+    }
+
+    return buildFollowUpRecommendation(
+      "Hướng xử trí đau đầu",
+      "Hiện tại có thể theo dõi nếu đau đầu nhẹ/vừa và không có dấu hiệu nguy hiểm. Bạn nên nghỉ trong phòng yên tĩnh, uống đủ nước, ngủ đủ, tránh nhìn màn hình lâu. Nếu kéo dài trên 3 ngày, tái diễn nhiều lần hoặc không giảm sau chăm sóc ban đầu, nên đặt lịch khám.",
+    );
+  }
+
+  if (scenario === "abdominal-pain") {
+    if (patientMessageCount === 1) {
+      return buildQuestion(
+        "Mức độ đau hiện tại?",
+        ["Nhẹ", "Trung bình", "Đau nhiều", "Rất đau"],
+      );
+    }
+    if (patientMessageCount === 2) {
+      return buildQuestion(
+        "Có triệu chứng nào đi kèm không?",
+        ["Buồn nôn", "Nôn", "Tiêu chảy", "Táo bón", "Không có"],
+      );
+    }
+
+    if (includesAny(contextText, ["rất đau", "nôn", "đau nhiều", "bên phải"])) {
+      return buildFollowUpRecommendation(
+        "Đau bụng cần khám sớm",
+        "Đau bụng kèm sốt, nôn nhiều, đau tăng dần, đau khu trú bên phải hoặc đau khi ấn vào cần được bác sĩ đánh giá sớm. Bạn nên hạn chế tự dùng thuốc giảm đau mạnh trước khi khám vì có thể che lấp triệu chứng.",
+      );
+    }
+
+    return buildFollowUpRecommendation(
+      "Hướng xử trí đau bụng",
+      "Nếu đau bụng nhẹ, không sốt, không nôn nhiều và vẫn ăn uống được, bạn có thể nghỉ ngơi, uống đủ nước, ăn thức ăn mềm và theo dõi thêm. Nếu đau kéo dài, tăng dần hoặc kèm sốt/nôn/tiêu chảy nhiều, nên đặt lịch khám.",
+    );
+  }
+
+  if (scenario === "medicine") {
+    if (includesAny(lowerText, ["cách dùng thuốc"])) {
+      return buildQuestion(
+        "Bạn đang muốn hỏi loại thuốc nào?",
+        [...triageQuickReplies.medication].slice(5, 11),
+      );
+    }
+
+    if (includesAny(lowerText, ["quên uống thuốc"])) {
+      return buildQuestion(
+        "Bạn quên thuốc bao lâu rồi?",
+        ["Dưới 2 giờ", "2-6 giờ", "Hơn 6 giờ", "Không nhớ rõ"],
+      );
+    }
+
+    if (patientMessageCount <= 1) {
+      return buildQuestion(
+        "Bạn muốn hỏi nội dung nào về thuốc?",
+        [...triageQuickReplies.medication].slice(0, 5),
+      );
+    }
+
+    return buildRecommendation(
+      "Tư vấn thuốc sơ bộ",
+      "Bạn không nên tự tăng/giảm liều hoặc ngừng thuốc nếu chưa có hướng dẫn của bác sĩ. Hãy kiểm tra đúng tên thuốc, hàm lượng, số lần dùng trong ngày và báo ngay nếu có dị ứng, khó thở, phát ban, chóng mặt nặng hoặc triệu chứng bất thường sau khi dùng.",
+      [
+        { label: "Đặt lịch khám", value: "book", tone: "primary" },
+        { label: "Tác dụng phụ", value: "side-effects" },
+      ],
+    );
+  }
+
+  if (scenario === "lab") {
+    if (patientMessageCount <= 1) {
+      return buildQuestion(
+        "Bạn muốn tải hoặc đọc loại kết quả nào?",
+        [...triageQuickReplies.labResults].slice(0, 5),
+      );
+    }
+
+    if (includesAny(contextText, ["tải ảnh", "tải file", "pdf", "ảnh"])) {
+      return buildQuestion(
+        "Bạn muốn tôi tập trung vào nội dung nào?",
+        ["Các chỉ số bất thường", "Đánh giá tổng quan", "Giải thích thuật ngữ", "Có cần gặp bác sĩ không"],
+      );
+    }
+
+    return buildRecommendation(
+      "Đọc kết quả xét nghiệm",
+      "AI có thể giúp tóm tắt chỉ số bất thường và gợi ý câu hỏi cần hỏi bác sĩ, nhưng kết luận cuối vẫn cần dựa trên triệu chứng, bệnh nền và thuốc đang dùng. Nếu chỉ số được đánh dấu cao/thấp rõ hoặc bạn có triệu chứng kèm theo, nên đặt lịch để bác sĩ đọc kết quả đầy đủ.",
+    );
+  }
+
+  return null;
+}
+
+function buildAssistantReply(
+  text: string,
+  messages: ConsultMessage[],
+): ConsultMessage {
+  const lowerText = text.toLowerCase();
+  const symptomReply = buildSymptomReply(text, messages);
+
+  if (symptomReply) {
+    return symptomReply;
+  }
+
+  if (lowerText.includes("thuốc") || lowerText.includes("paracetamol")) {
+    return {
+      id: `assistant-${Date.now()}`,
+      role: "assistant",
+      kind: "medical-info",
+      text: "",
+      time: getTimeLabel(),
+      card: {
+        name: "Thông tin dùng thuốc",
+        description:
+          "Mình có thể giúp bạn kiểm tra cách dùng, cảnh báo tương tác và dấu hiệu cần hỏi bác sĩ.",
+        details:
+          "Không tự ý tăng liều, đổi thuốc hoặc ngưng thuốc nếu chưa có chỉ định. Hãy gửi ảnh toa thuốc nếu có.",
+        actions: [
+          { label: "Liều dùng", value: "dosage", tone: "primary" },
+          { label: "Tác dụng phụ", value: "side-effects" },
+          { label: "Lưu", value: "save" },
+        ],
+      },
+    };
+  }
+
+  if (lowerText.includes("đặt lịch") || lowerText.includes("bác sĩ")) {
+    return {
+      id: `assistant-${Date.now()}`,
+      role: "assistant",
+      kind: "recommendation",
+      title: "Gợi ý bước tiếp theo",
+      text: "Bạn có thể đặt lịch khám hoặc tìm bác sĩ phù hợp để được đánh giá trực tiếp hơn.",
+      time: getTimeLabel(),
+      actions: [
+        { label: "Đặt lịch khám", value: "book", tone: "primary" },
+        { label: "Tìm bác sĩ", value: "find-doctors" },
+      ],
+    };
+  }
+
+  return {
+    id: `assistant-${Date.now()}`,
+    role: "assistant",
+    kind: "question",
+    text: "Mình đã ghi nhận. Triệu chứng này bắt đầu từ khi nào và mức độ ảnh hưởng đến sinh hoạt ra sao?",
+    time: getTimeLabel(),
+    quickReplies: ["Hôm nay", "1-3 ngày", ">3 ngày", "Ảnh hưởng nhiều"],
+  };
+}
+
+function CaseContextBar({
+  consultCase,
+  onOpen,
+}: {
+  consultCase: ConsultCase;
+  onOpen: () => void;
+}) {
   return (
-    <div
-      className={`mx-4 mt-3 rounded-[24px] border px-4 py-3 ${
-        isEmergency
-          ? "border-[#fecaca] bg-[#fff5f5]"
-          : "border-[#d9eadf] bg-white"
-      }`}
+    <button
+      type="button"
+      onClick={onOpen}
+      className="mx-4 mt-3 rounded-[22px] border border-[#d8e7ef] bg-white px-4 py-3 text-left shadow-[0_8px_20px_rgba(15,23,42,0.04)] transition active:scale-[0.99]"
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#64748b]">
-            Case context
-          </p>
-          <h2 className="mt-1 text-[16px] font-semibold text-[#10233f]">
-            {consultCase.title}
-          </h2>
-          <p className="mt-1 text-[13px] leading-5 text-[#64748b]">
-            {consultCase.subtitle}
-          </p>
-        </div>
-        <span
-          className={`rounded-full px-3 py-1 text-[11px] font-medium ${
-            isEmergency
-              ? "bg-[#fee2e2] text-[#dc2626]"
-              : consultCase.type === "doctor"
-                ? "bg-[#eff6ff] text-[#2563eb]"
-                : "bg-[#ecfdf3] text-[#16a34a]"
-          }`}
-        >
-          {consultCase.status}
-        </span>
+      <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#16a34a]">
+        Medical case
+      </p>
+      <div className="mt-1 flex flex-wrap gap-x-2 gap-y-1 text-[13px] leading-5 text-[#475569]">
+        <span>Case: {consultCase.title}</span>
+        <span>|</span>
+        <span>Duration: {consultCase.duration}</span>
+        <span>|</span>
+        <span>Status: {consultCase.status}</span>
       </div>
-
-      <div className="mt-3 flex flex-wrap gap-2">
-        <span className="rounded-full border border-[#d8eadf] bg-[#f8fbf8] px-3 py-1 text-[11px] font-medium text-[#64748b]">
-          {consultCase.typeLabel}
-        </span>
-        <span className="rounded-full border border-[#d8eadf] bg-[#f8fbf8] px-3 py-1 text-[11px] font-medium text-[#64748b]">
-          Cập nhật {consultCase.time}
-        </span>
-        {consultCase.tag ? (
-          <span className="rounded-full border border-[#d8eadf] bg-[#f8fbf8] px-3 py-1 text-[11px] font-medium text-[#64748b]">
-            {consultCase.tag}
-          </span>
-        ) : null}
-      </div>
-    </div>
+    </button>
   );
 }
 
-function buildAssistantReply(text: string) {
-  const lowerText = text.toLowerCase();
-
-  if (lowerText.includes("sốt")) {
-    return "Bạn cho mình biết thêm nhiệt độ, thời gian sốt và có kèm ho, đau họng hay không nhé.";
-  }
-
-  if (lowerText.includes("đau đầu")) {
-    return "Mình đã ghi nhận. Bạn có chóng mặt, buồn nôn hoặc mờ mắt kèm theo không?";
-  }
-
-  if (lowerText.includes("ảnh") || lowerText.includes("hình")) {
-    return "Ảnh đã được ghi nhận. Mình sẽ đối chiếu thêm với mô tả triệu chứng của bạn.";
-  }
-
-  return "Mình đã ghi nhận. Bạn cho thêm thời điểm xuất hiện, mức độ và yếu tố làm triệu chứng nặng hơn nhé.";
+function CompleteCaseControl({ onComplete }: { onComplete: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onComplete}
+      className="mx-4 mt-3 flex min-h-11 items-center gap-3 rounded-[20px] border border-[#bbf7d0] bg-[#ecfdf3] px-4 py-3 text-left text-[#14532d] shadow-[0_8px_20px_rgba(22,163,74,0.06)] transition active:scale-[0.99]"
+    >
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 border-[#16a34a] bg-white">
+        <span className="h-2.5 w-2.5 rounded-sm bg-[#16a34a]" />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-[13px] font-bold">Đã được xử lý</span>
+        <span className="mt-0.5 block text-[12px] leading-4 text-[#166534]">
+          Đánh dấu ca tư vấn này là đã hoàn thành
+        </span>
+      </span>
+    </button>
+  );
 }
 
 export default function ConsultationChatScreen({
   consultCase,
+  readOnly = false,
 }: {
   consultCase: ConsultCase;
+  readOnly?: boolean;
 }) {
   const router = useRouter();
+  const [activeCase, setActiveCase] = useState<ConsultCase>(consultCase);
+  const [storageChecked, setStorageChecked] = useState(false);
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<ConsultMessage[]>(
     consultCase.messages,
+  );
+  const [sheet, setSheet] = useState<SheetState>(null);
+  const [aiPhase, setAiPhase] = useState<AiPhase>(null);
+  const [isSending, setIsSending] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [voiceText, setVoiceText] = useState("");
+  const [previewFile, setPreviewFile] = useState<string | null>(null);
+  const [uploadIntent, setUploadIntent] = useState<UploadIntent>("image");
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const [aiDisclaimerVisible, setAiDisclaimerVisible] = useState(true);
+  const [emergencyActive, setEmergencyActive] = useState(
+    activeCase.severity === "high",
   );
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const title = useMemo(() => {
-    if (consultCase.type === "doctor") {
-      return "Chat với bác sĩ";
-    }
-
-    if (consultCase.severity === "high") {
-      return "Hỗ trợ khẩn";
-    }
-
-    return "Chat với AI";
-  }, [consultCase.severity, consultCase.type]);
+  const statusLabel = emergencyActive
+    ? "Urgent"
+    : activeCase.status === "Đang đánh giá"
+      ? "Đang đánh giá"
+    : activeCase.type === "doctor"
+      ? "Doctor"
+      : "AI Active";
 
   const subtitle = useMemo(() => {
-    if (consultCase.type === "doctor") {
-      return "Bác sĩ đang theo dõi case này";
+    if (readOnly) return "Đang xem lại cuộc hội thoại đã hoàn thành";
+    if (activeCase.type === "doctor") return "Bác sĩ đang theo dõi case";
+    if (emergencyActive) return "Ưu tiên xử lý khẩn";
+    if (activeCase.status === "Đang đánh giá") {
+      return "AI đang thu thập thông tin triage";
     }
-
-    if (consultCase.severity === "high") {
-      return "Ưu tiên xử lý khẩn";
-    }
-
-    return "Trợ lý đang sẵn sàng";
-  }, [consultCase.severity, consultCase.type]);
+    return "AI đang phân tích theo ngữ cảnh";
+  }, [activeCase.status, activeCase.type, emergencyActive, readOnly]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({
       top: scrollRef.current.scrollHeight,
       behavior: "smooth",
     });
-  }, [messages]);
+  }, [messages, aiPhase]);
 
-  const addPatientMessage = (text: string) => {
+  useEffect(() => {
+    setAiDisclaimerVisible(true);
+    const timer = window.setTimeout(() => {
+      setAiDisclaimerVisible(false);
+    }, 5000);
+
+    return () => window.clearTimeout(timer);
+  }, [activeCase.id]);
+
+  useEffect(() => {
+    const storedCase = readStoredConsultCase(consultCase.id);
+    if (!storedCase?.messages?.length) {
+      setActiveCase(consultCase);
+      setMessages(consultCase.messages);
+      setEmergencyActive(consultCase.severity === "high");
+      setStorageChecked(true);
+      return;
+    }
+
+    setActiveCase(storedCase);
+    setMessages(storedCase.messages);
+    setEmergencyActive(storedCase.severity === "high");
+    setStorageChecked(true);
+  }, [consultCase]);
+
+  useEffect(() => {
+    if (!storageChecked) return;
+    if (!isPersistableConsultCase(activeCase.id)) return;
+
+    persistOpenedConsultCase({
+      ...activeCase,
+      messages,
+      time: "Vừa xong",
+    });
+  }, [activeCase, messages, storageChecked]);
+
+  const showToast = (message: string) => {
+    setToast(message);
+    window.setTimeout(() => setToast(null), 1800);
+  };
+
+  const markCaseEmergency = () => {
+    setEmergencyActive(true);
+    setActiveCase((current) => ({
+      ...current,
+      type: "emergency",
+      typeLabel: "Khẩn cấp",
+      status: "Khẩn cấp",
+      severity: "high",
+      tag: "Ưu tiên",
+      time: "Vừa xong",
+    }));
+  };
+
+  const appendPatientMessage = (text: string) => {
+    if (readOnly) return;
     const cleanText = text.trim();
-    if (!cleanText) return;
+    if (!cleanText || isSending || aiPhase) return;
 
+    const isEmergencyInput = detectEmergency(cleanText);
     const patientMessage: ConsultMessage = {
       id: `patient-${Date.now()}`,
       role: "patient",
+      kind: "text",
       text: cleanText,
       time: getTimeLabel(),
     };
 
-    setMessages((current) => [
-      ...current,
-      patientMessage,
-      {
-        id: `assistant-${Date.now()}`,
-        role: "assistant",
-        text: buildAssistantReply(cleanText),
-        time: getTimeLabel(),
+    setDraft("");
+    setIsSending(true);
+    setMessages((current) => [...current, patientMessage]);
+
+    window.setTimeout(() => {
+      setIsSending(false);
+      setAiPhase(isEmergencyInput ? "evaluating" : "analyzing");
+    }, 220);
+
+    window.setTimeout(
+      () => {
+        if (isEmergencyInput) {
+          markCaseEmergency();
+          setMessages((current) => [...current, buildEmergencyMessage()]);
+        } else {
+          setMessages((current) => {
+            const assistantReply = buildAssistantReply(cleanText, current);
+
+            if (assistantReply.kind === "emergency") {
+              markCaseEmergency();
+            }
+
+            return [...current, assistantReply];
+          });
+        }
+        setAiPhase(null);
       },
-    ]);
+      isEmergencyInput ? 1100 : 1300,
+    );
   };
 
-  const onQuickReply = (text: string) => {
-    if (text === "Gửi ảnh kết quả") {
-      fileInputRef.current?.click();
+  const handleAction = (action: ConsultAction) => {
+    if (readOnly) return;
+    if (action.value === "call-emergency") {
+      window.location.href = "tel:115";
       return;
     }
 
-    addPatientMessage(text);
+    if (action.value === "connect-doctor") {
+      router.push("/patient/consult/new?mode=doctor&emergency=1");
+      return;
+    }
+
+    if (action.value === "continue-consult") {
+      showToast("Bạn có thể tiếp tục mô tả triệu chứng trong ô chat");
+      return;
+    }
+
+    if (action.value === "find-hospital") {
+      showToast("Đang tìm bệnh viện gần nhất");
+      return;
+    }
+
+    if (action.value === "book") {
+      router.push("/patient/appointments");
+      return;
+    }
+
+    showToast(`Đã chọn: ${action.label}`);
   };
 
-  const onSend = () => {
-    addPatientMessage(draft);
-    setDraft("");
+  const openUploadModal = (intent: UploadIntent) => {
+    if (readOnly) return;
+    setUploadIntent(intent);
+    setSheet(null);
+    setUploadModalOpen(true);
+  };
+
+  const openAttachmentFile = () => {
+    openUploadModal("medical-file");
+  };
+
+  const confirmImageSend = () => {
+    if (!previewFile) return;
+
+    const fileName = previewFile;
+    setPreviewFile(null);
+    setUploadModalOpen(false);
+    setMessages((current) => [
+      ...current,
+      {
+        id: `image-${Date.now()}`,
+        role: "patient",
+        kind: "text",
+        text: `Tôi đã gửi ảnh/tệp: ${fileName}`,
+        time: getTimeLabel(),
+      },
+    ]);
+    setAiPhase("image");
+
+    window.setTimeout(() => {
+      setMessages((current) => [
+        ...current,
+        {
+          id: `image-result-${Date.now()}`,
+          role: "assistant",
+          kind: "question",
+          text: "Ảnh đã được ghi nhận. Bạn mô tả thêm ảnh này liên quan đến triệu chứng nào để mình phân tích đúng ngữ cảnh nhé.",
+          time: getTimeLabel(),
+          quickReplies: [
+            "Kết quả xét nghiệm",
+            "Ảnh vùng đau",
+            "Toa thuốc",
+            "Khác",
+          ],
+        },
+      ]);
+      setAiPhase(null);
+    }, 1300);
+  };
+
+  const startVoice = () => {
+    if (readOnly) return;
+    setSheet("voice");
+    setIsRecording(true);
+    setVoiceText("");
+  };
+
+  const stopVoice = () => {
+    if (readOnly) return;
+    setIsRecording(false);
+    setVoiceText("Tôi bị đau đầu và hơi chóng mặt từ hôm qua");
+  };
+
+  const confirmVoice = () => {
+    if (readOnly) return;
+    if (voiceText) {
+      appendPatientMessage(voiceText);
+    }
+    setSheet(null);
+    setVoiceText("");
+    setIsRecording(false);
+  };
+
+  const markCaseCompleted = () => {
+    if (readOnly) return;
+
+    const completedCase: ConsultCase = {
+      ...activeCase,
+      status: "Đã hoàn thành",
+      time: "Vừa xong",
+      messages: [
+        ...messages,
+        {
+          id: `completed-${Date.now()}`,
+          role: "system",
+          kind: "system",
+          text: "Ca tư vấn đã được bệnh nhân đánh dấu là đã xử lý.",
+          time: getTimeLabel(),
+        },
+      ],
+    };
+
+    setActiveCase(completedCase);
+    setMessages(completedCase.messages);
+    persistOpenedConsultCase(completedCase);
+    showToast("Đã đánh dấu ca tư vấn là hoàn thành");
   };
 
   return (
-    <main className="flex h-full min-h-0 bg-[#e9f5ed] px-2 py-2 sm:px-4 sm:py-5">
-      <div className="mx-auto flex h-full min-h-0 w-full max-w-97.5 flex-col overflow-hidden rounded-3xl border border-[#d7eadf] bg-[#f7fbf8] shadow-[0_18px_48px_rgba(15,23,42,0.12)]">
+    <main className="relative flex h-full min-h-0 bg-[#edf6fb] px-2 py-2 sm:px-4 sm:py-5">
+      <div className="relative mx-auto flex h-full min-h-0 w-full max-w-97.5 flex-col overflow-hidden rounded-3xl border border-[#dbeaf1] bg-[#f8fbfd] shadow-[0_18px_48px_rgba(15,23,42,0.12)]">
         <ChatHeader
-          title={title}
+          title={activeCase.title}
           subtitle={subtitle}
+          status={statusLabel}
+          emergency={emergencyActive}
           onBack={() => router.push("/patient/consult")}
-          onAppointments={() => router.push("/patient/appointments")}
+          onTitleClick={() => setSheet("case-info")}
+          onStatusClick={() => setSheet("status")}
         />
 
-        {consultCase.severity === "high" ? (
-          <EmergencyBanner
-            onConnect={() => router.push("/patient/appointments")}
-          />
+        <CaseContextBar
+          consultCase={activeCase}
+          onOpen={() => setSheet("case-info")}
+        />
+
+        {!readOnly && !activeCase.status.toLowerCase().includes("hoàn") ? (
+          <CompleteCaseControl onComplete={markCaseCompleted} />
         ) : null}
 
-        <CaseContextBanner consultCase={consultCase} />
-
-        <div className="min-h-0 flex-1 overflow-y-auto" ref={scrollRef}>
-          <ConversationList messages={messages} />
-          <QuickReplies items={consultCase.quickReplies} onChoose={onQuickReply} />
+        <div
+          className="min-h-0 flex-1 overflow-y-auto relative"
+          ref={scrollRef}
+        >
+          <ConversationList
+            messages={messages}
+            onQuickReply={appendPatientMessage}
+            onAction={handleAction}
+          />
+          {aiPhase ? <AiTypingIndicator phase={aiPhase} /> : null}
         </div>
 
-        <InputBar
-          draft={draft}
-          setDraft={setDraft}
-          onSend={onSend}
-          onAttach={() => fileInputRef.current?.click()}
-          onRecord={() => router.push("/patient/consult/new?mode=doctor")}
-        />
+        {activeCase.status?.toLowerCase().includes("hoàn") || readOnly ? (
+          <footer className="border-t border-[#d8eadf] bg-white px-3 pb-[calc(0.8rem+env(safe-area-inset-bottom))] pt-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="min-w-0 text-[13px] leading-5 text-[#64748b]">
+                Cuộc hội thoại đã hoàn thành.
+              </span>
+              <button
+                type="button"
+                onClick={() => router.push("/patient/consult/new?mode=ai")}
+                className="min-h-11 rounded-2xl bg-[#f1f5f9] px-4 py-2 text-sm font-semibold text-[#475569] border border-[#e6e9ee]"
+              >
+                Chat mới
+              </button>
+            </div>
+          </footer>
+        ) : (
+          <InputBar
+            draft={draft}
+            setDraft={setDraft}
+            onSend={() => appendPatientMessage(draft)}
+            onAttach={() => openUploadModal("image")}
+            onRecord={startVoice}
+            onLab={() => {
+              setDraft("Tôi muốn tải kết quả xét nghiệm để được đọc sơ bộ");
+              openUploadModal("lab");
+            }}
+            onMedicine={() => {
+              setDraft("Tôi muốn hỏi về thuốc đang dùng");
+            }}
+            onBookDoctor={() => router.push("/patient/appointments")}
+            onEmergency={() => setSheet("emergency")}
+            isSending={isSending}
+            isAiLoading={aiPhase !== null}
+            isRecording={isRecording}
+          />
+        )}
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={() => addPatientMessage("Mình đã gửi ảnh kết quả, nhờ bạn xem giúp.")}
+        <button
+          type="button"
+          onClick={() => setSheet("emergency")}
+          aria-label="Mở hỗ trợ khẩn"
+          className={`emergency-fab-motion absolute right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-[0_12px_26px_rgba(220,38,38,0.18)] transition ${
+            emergencyActive ? "animate-pulse bg-[#dc2626]" : "bg-[#fb923c]"
+          }`}
+          style={{
+            bottom: "calc(env(safe-area-inset-bottom, 6px) + 8rem + 8px)",
+          }}
+        >
+          <AlertTriangle className="h-6 w-6" />
+        </button>
+
+        {aiDisclaimerVisible ? (
+          <div className="pointer-events-none absolute left-3 right-3 top-3 z-50 rounded-2xl border border-[#bfdbfe] bg-[#eff6ff] px-3 py-2 text-[11px] leading-4 text-[#1e3a8a] shadow-[0_10px_24px_rgba(30,64,175,0.14)]">
+            Tư vấn AI chỉ mang tính tham khảo. Để biết chính xác, hãy liên hệ
+            bác sĩ chuyên ngành.
+          </div>
+        ) : null}
+      </div>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*,.pdf"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file) {
+            setPreviewFile(file.name);
+          }
+          event.currentTarget.value = "";
+        }}
+      />
+
+      {sheet ? (
+        <BottomSheet onClose={() => setSheet(null)}>
+          {sheet === "case-info" ? (
+            <CaseInfoSheet consultCase={activeCase} />
+          ) : null}
+          {sheet === "status" ? (
+            <StatusSheet emergencyActive={emergencyActive} aiPhase={aiPhase} />
+          ) : null}
+          {sheet === "attachments" ? (
+            <AttachmentSheet
+              onPickFile={() => openUploadModal("image")}
+              onPickLab={() => openUploadModal("lab")}
+              onPickMedicalFile={() => openUploadModal("medical-file")}
+              onSendLocation={() => {
+                setSheet(null);
+                appendPatientMessage("Tôi muốn tìm phòng khám gần đây");
+              }}
+            />
+          ) : null}
+          {sheet === "voice" ? (
+            <VoiceSheet
+              isRecording={isRecording}
+              voiceText={voiceText}
+              onStop={stopVoice}
+              onConfirm={confirmVoice}
+              onCancel={() => {
+                setSheet(null);
+                setIsRecording(false);
+                setVoiceText("");
+              }}
+            />
+          ) : null}
+          {sheet === "emergency" ? (
+            <EmergencySheet
+              onUrgentAi={() => {
+                setSheet(null);
+                markCaseEmergency();
+                setMessages((current) => [...current, buildEmergencyMessage()]);
+              }}
+              onConnectDoctor={() =>
+                router.push("/patient/consult/new?mode=doctor&emergency=1")
+              }
+              onCall={() => {
+                window.location.href = "tel:115";
+              }}
+            />
+          ) : null}
+        </BottomSheet>
+      ) : null}
+
+      {uploadModalOpen ? (
+        <UploadDropzoneModal
+          intent={uploadIntent}
+          fileName={previewFile}
+          onPickFile={() => fileInputRef.current?.click()}
+          onDropFile={(fileName) => setPreviewFile(fileName)}
+          onCancel={() => {
+            setPreviewFile(null);
+            setUploadModalOpen(false);
+          }}
+          onConfirm={confirmImageSend}
+        />
+      ) : null}
+
+      {toast ? (
+        <div className="fixed left-1/2 top-4 z-60 -translate-x-1/2 rounded-full bg-[#10233f] px-4 py-2 text-[13px] font-semibold text-white shadow-lg">
+          {toast}
+        </div>
+      ) : null}
+
+      <style jsx global>{`
+        @keyframes reply-slide {
+          from {
+            opacity: 0;
+            transform: translateY(6px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        @keyframes wave {
+          0%,
+          100% {
+            transform: scaleY(0.45);
+          }
+          50% {
+            transform: scaleY(1);
+          }
+        }
+      `}</style>
+    </main>
+  );
+}
+
+function AiTypingIndicator({ phase }: { phase: AiPhase }) {
+  const label =
+    phase === "image"
+      ? "Đang phân tích hình ảnh y tế..."
+      : phase === "evaluating"
+        ? "Đang đánh giá mức độ khẩn..."
+        : phase === "generating"
+          ? "Đang tạo khuyến nghị..."
+          : "Đang phân tích triệu chứng...";
+
+  return (
+    <div className="px-4 pb-2">
+      <div className="inline-flex items-center gap-2 rounded-full border border-[#bbf7d0] bg-white px-4 py-2 text-[13px] font-medium text-[#16a34a] shadow-sm">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        {label}
+      </div>
+    </div>
+  );
+}
+
+function BottomSheet({
+  children,
+  onClose,
+}: {
+  children: ReactNode;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center px-3 pb-3">
+      <button
+        type="button"
+        aria-label="Đóng"
+        className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="relative w-full max-w-md rounded-[28px] bg-white p-4 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
+        <button
+          type="button"
+          aria-label="Đóng"
+          onClick={onClose}
+          className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-[#f8fbfd] text-[#64748b]"
+        >
+          <X className="h-4.5 w-4.5" />
+        </button>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function CaseInfoSheet({ consultCase }: { consultCase: ConsultCase }) {
+  return (
+    <div className="pr-9">
+      <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#16a34a]">
+        Case details
+      </p>
+      <h2 className="mt-1 text-[20px] font-bold text-[#10233f]">
+        {consultCase.title}
+      </h2>
+      <p className="mt-2 text-[14px] leading-6 text-[#64748b]">
+        {consultCase.subtitle}
+      </p>
+      <div className="mt-4 grid gap-2 text-[14px]">
+        <InfoRow label="Loại tư vấn" value={consultCase.typeLabel} />
+        <InfoRow label="Thời gian" value={consultCase.duration} />
+        <InfoRow label="Trạng thái" value={consultCase.status} />
+        <InfoRow
+          label="Chuyên khoa"
+          value={consultCase.tag ?? "Chưa xác định"}
         />
       </div>
-    </main>
+    </div>
+  );
+}
+
+function StatusSheet({
+  emergencyActive,
+  aiPhase,
+}: {
+  emergencyActive: boolean;
+  aiPhase: AiPhase;
+}) {
+  return (
+    <div className="pr-9">
+      <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#16a34a]">
+        AI state
+      </p>
+      <h2 className="mt-1 text-[20px] font-bold text-[#10233f]">
+        {emergencyActive ? "Đang ưu tiên khẩn" : "AI đang hoạt động"}
+      </h2>
+      <p className="mt-2 text-[14px] leading-6 text-[#64748b]">
+        {aiPhase
+          ? "Hệ thống đang phân tích triệu chứng và ngữ cảnh y tế của case."
+          : "Case đang sẵn sàng tiếp nhận thêm thông tin từ bệnh nhân."}
+      </p>
+    </div>
+  );
+}
+
+function AttachmentSheet({
+  onPickFile,
+  onPickLab,
+  onPickMedicalFile,
+  onSendLocation,
+}: {
+  onPickFile: () => void;
+  onPickLab: () => void;
+  onPickMedicalFile: () => void;
+  onSendLocation: () => void;
+}) {
+  const options = [
+    { label: "Chụp ảnh", sub: "Camera", icon: Camera, onClick: onPickFile },
+    {
+      label: "Tải ảnh lên",
+      sub: "Kết quả xét nghiệm",
+      icon: ImageIcon,
+      onClick: onPickLab,
+    },
+    {
+      label: "Tệp y tế",
+      sub: "PDF hoặc hồ sơ",
+      icon: FileText,
+      onClick: onPickMedicalFile,
+    },
+    {
+      label: "Toa thuốc",
+      sub: "Ảnh đơn thuốc",
+      icon: Pill,
+      onClick: onPickFile,
+    },
+    {
+      label: "Vị trí",
+      sub: "Phòng khám gần đây",
+      icon: MapPin,
+      onClick: onSendLocation,
+    },
+  ];
+
+  return (
+    <div className="pr-9">
+      <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#16a34a]">
+        Attachment
+      </p>
+      <h2 className="mt-1 text-[20px] font-bold text-[#10233f]">
+        Gửi thêm thông tin y tế
+      </h2>
+      <div className="mt-4 grid gap-2">
+        {options.map((option) => {
+          const Icon = option.icon;
+          return (
+            <button
+              key={option.label}
+              type="button"
+              onClick={option.onClick}
+              className="flex min-h-14 items-center gap-3 rounded-2xl border border-[#d8e7ef] bg-[#f8fbfd] px-3 text-left"
+            >
+              <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white text-[#16a34a]">
+                <Icon className="h-5 w-5" />
+              </span>
+              <span>
+                <span className="block text-[14px] font-semibold text-[#10233f]">
+                  {option.label}
+                </span>
+                <span className="text-[12px] text-[#64748b]">{option.sub}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function VoiceSheet({
+  isRecording,
+  voiceText,
+  onStop,
+  onConfirm,
+  onCancel,
+}: {
+  isRecording: boolean;
+  voiceText: string;
+  onStop: () => void;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div className="pr-9">
+      <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#16a34a]">
+        Voice input
+      </p>
+      <h2 className="mt-1 text-[20px] font-bold text-[#10233f]">
+        {isRecording ? "Đang ghi âm..." : "Xác nhận nội dung"}
+      </h2>
+      <div className="mt-5 flex h-16 items-center justify-center gap-1 rounded-3xl bg-[#ecfdf3]">
+        {[0, 1, 2, 3, 4, 5, 6].map((bar) => (
+          <span
+            key={bar}
+            className="h-9 w-2 origin-center rounded-full bg-[#16a34a]"
+            style={{
+              animation: "wave 900ms ease-in-out infinite",
+              animationDelay: `${bar * 90}ms`,
+            }}
+          />
+        ))}
+      </div>
+      {voiceText ? (
+        <p className="mt-4 rounded-2xl bg-[#f8fbfd] px-3 py-3 text-[14px] leading-6 text-[#334155]">
+          {voiceText}
+        </p>
+      ) : null}
+      <div className="mt-4 flex gap-2">
+        {isRecording ? (
+          <button
+            type="button"
+            onClick={onStop}
+            className="min-h-11 flex-1 rounded-2xl bg-[#dc2626] px-4 text-sm font-semibold text-white"
+          >
+            Dừng ghi
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="min-h-11 flex-1 rounded-2xl bg-[#16a34a] px-4 text-sm font-semibold text-white"
+          >
+            Gửi nội dung
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onCancel}
+          className="min-h-11 rounded-2xl border border-[#d8e7ef] bg-white px-4 text-sm font-semibold text-[#334155]"
+        >
+          Hủy
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function EmergencySheet({
+  onUrgentAi,
+  onConnectDoctor,
+  onCall,
+}: {
+  onUrgentAi: () => void;
+  onConnectDoctor: () => void;
+  onCall: () => void;
+}) {
+  return (
+    <div className="pr-9">
+      <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#dc2626]">
+        Emergency support
+      </p>
+      <h2 className="mt-1 text-[20px] font-bold text-[#991b1b]">
+        Bạn cần hỗ trợ khẩn?
+      </h2>
+      <p className="mt-2 text-[14px] leading-6 text-[#7f1d1d]">
+        Nếu có khó thở, đau ngực dữ dội, ngất hoặc chảy máu nhiều, hãy gọi cấp
+        cứu ngay.
+      </p>
+      <div className="mt-4 grid gap-2">
+        <EmergencyButton
+          icon={Bot}
+          label="AI hỗ trợ khẩn"
+          onClick={onUrgentAi}
+        />
+        <EmergencyButton
+          icon={Stethoscope}
+          label="Kết nối bác sĩ"
+          onClick={onConnectDoctor}
+        />
+        <EmergencyButton
+          icon={PhoneCall}
+          label="Gọi 115"
+          onClick={onCall}
+          danger
+        />
+      </div>
+    </div>
+  );
+}
+
+function EmergencyButton({
+  icon: Icon,
+  label,
+  onClick,
+  danger = false,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex min-h-12 items-center gap-3 rounded-2xl px-3 text-left text-sm font-semibold ${
+        danger
+          ? "bg-[#dc2626] text-white"
+          : "border border-[#fecaca] bg-[#fff5f5] text-[#991b1b]"
+      }`}
+    >
+      <Icon className="h-5 w-5" />
+      {label}
+    </button>
+  );
+}
+
+function UploadDropzoneModal({
+  intent,
+  fileName,
+  onPickFile,
+  onDropFile,
+  onCancel,
+  onConfirm,
+}: {
+  intent: UploadIntent;
+  fileName: string | null;
+  onPickFile: () => void;
+  onDropFile: (fileName: string) => void;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const title =
+    intent === "lab"
+      ? "Tải kết quả xét nghiệm"
+      : intent === "medical-file"
+        ? "Tải tài liệu y tế"
+        : "Gửi ảnh cho AI";
+  const subtitle =
+    intent === "lab"
+      ? "Kéo thả ảnh/PDF xét nghiệm hoặc chọn tệp từ thiết bị."
+      : "Kéo thả ảnh, PDF hoặc hồ sơ y tế vào đây.";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+      <button
+        type="button"
+        aria-label="Đóng upload"
+        className="absolute inset-0 bg-slate-950/55 backdrop-blur-sm"
+        onClick={onCancel}
+      />
+      <div className="relative w-full max-w-sm rounded-[28px] bg-white p-5 shadow-[0_28px_80px_rgba(15,23,42,0.3)]">
+        <h2 className="mt-4 text-[18px] font-bold text-[#10233f]">
+          {title}
+        </h2>
+        <p className="mt-1 text-[13px] leading-5 text-[#64748b]">{subtitle}</p>
+        <button
+          type="button"
+          onClick={onPickFile}
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={(event) => {
+            event.preventDefault();
+            const file = event.dataTransfer.files?.[0];
+            if (file) {
+              onDropFile(file.name);
+            }
+          }}
+          className="mt-4 flex min-h-44 w-full flex-col items-center justify-center rounded-3xl border-2 border-dashed border-[#bbf7d0] bg-[#ecfdf3] px-4 text-center text-[#16a34a] transition hover:bg-[#dcfce7]"
+        >
+          <Upload className="h-10 w-10" />
+          <span className="mt-3 text-[14px] font-bold">
+            Kéo thả tài liệu vào đây
+          </span>
+          <span className="mt-1 text-[12px] font-medium text-[#15803d]">
+            hoặc chạm để chọn file
+          </span>
+        </button>
+        {fileName ? (
+          <p className="mt-3 rounded-2xl bg-[#f8fbfd] px-3 py-2 text-[13px] font-medium text-[#334155]">
+            Đã chọn: {fileName}
+          </p>
+        ) : null}
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={!fileName}
+            className="min-h-11 flex-1 rounded-2xl bg-[#16a34a] text-sm font-semibold text-white disabled:bg-[#d8e7ef] disabled:text-[#94a3b8]"
+          >
+            Gửi để phân tích
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="min-h-11 rounded-2xl border border-[#d8e7ef] bg-white px-4 text-sm font-semibold text-[#334155]"
+          >
+            Hủy
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4 rounded-2xl bg-[#f8fbfd] px-3 py-2">
+      <span className="text-[#64748b]">{label}</span>
+      <span className="text-right font-semibold text-[#10233f]">{value}</span>
+    </div>
   );
 }

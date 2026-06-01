@@ -1,60 +1,68 @@
 "use client";
 
-import { ArrowLeft, CalendarCheck2 } from "lucide-react";
-import React from "react";
+import { ArrowLeft, Stethoscope } from "lucide-react";
 
 export default function ChatHeader({
   title = "Tư vấn sức khỏe",
   subtitle = "AI sẵn sàng hỗ trợ",
+  status = "AI Active",
+  emergency = false,
   onBack,
-  onAppointments,
+  onTitleClick,
+  onStatusClick,
 }: {
   title?: string;
   subtitle?: string;
+  status?: string;
+  emergency?: boolean;
   onBack?: () => void;
-  onAppointments?: () => void;
+  onTitleClick?: () => void;
+  onStatusClick?: () => void;
 }) {
   return (
-    <header className="relative overflow-hidden rounded-b-3xl bg-linear-to-br from-[#1fa24a] via-[#16a34a] to-[#10813a] px-4 pb-4 pt-4 text-white">
-      <div className="relative flex items-center justify-between gap-3">
+    <header className="relative overflow-hidden border-b border-[#dbeaf1] bg-white px-4 py-3 text-[#10233f]">
+      <div className="flex min-h-13 items-center justify-between gap-3">
         <button
+          type="button"
           aria-label="Quay lại"
           onClick={onBack}
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-white/12"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#d8e7ef] bg-[#f8fbfd] text-[#334155] transition active:scale-95"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
 
-        <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-white/90 text-[#16a34a]">
-            <svg
-              className="h-5 w-5 text-[#16a34a]"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-            >
-              <path
-                d="M12 2v4"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </div>
-          <div>
-            <p className="text-[13px] text-white/80">Trợ lý đang sẵn sàng</p>
-            <h1 className="text-[20px] font-semibold leading-tight">{title}</h1>
-          </div>
-        </div>
+        <button
+          type="button"
+          onClick={onTitleClick}
+          className="flex min-w-0 flex-1 items-center justify-center gap-3 rounded-2xl px-2 py-1 text-center transition active:scale-[0.99]"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#ecfdf3] text-[#16a34a]">
+            <Stethoscope className="h-5 w-5" />
+          </span>
+          <span className="min-w-0 text-left">
+            <span className="block truncate text-[16px] font-semibold leading-tight">
+              {title}
+            </span>
+            <span className="mt-0.5 block truncate text-[12px] text-[#64748b]">
+              {subtitle}
+            </span>
+          </span>
+        </button>
 
         <button
-          aria-label="Đặt lịch"
-          onClick={onAppointments}
-          className="flex h-11 w-11 items-center justify-center rounded-full bg-white/12"
+          type="button"
+          onClick={onStatusClick}
+          aria-label="Xem trạng thái AI"
+          className={`min-h-11 shrink-0 rounded-full px-3 text-[11px] font-bold ${
+            emergency
+              ? "animate-pulse bg-[#fee2e2] text-[#dc2626]"
+              : "bg-[#ecfdf3] text-[#16a34a]"
+          }`}
         >
-          <CalendarCheck2 className="h-5 w-5" />
+          {status}
         </button>
       </div>
     </header>
   );
 }
+

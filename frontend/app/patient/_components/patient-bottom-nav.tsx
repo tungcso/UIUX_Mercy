@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -13,7 +13,7 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   { href: "/patient", label: "Home", icon: House, exact: true },
-  { href: "/patient/consult?mode=ai", label: "Chat", icon: MessageCircle },
+  { href: "/patient/consult", label: "Consultations", icon: MessageCircle },
   {
     href: "/patient/appointments",
     label: "Appointments",
@@ -44,19 +44,19 @@ export default function PatientBottomNav() {
                 aria-current={isActive ? "page" : undefined}
                 className={`flex flex-col items-center gap-1 rounded-2xl px-2 py-2 transition ${
                   isActive
-                    ? "text-[#2f66dc]"
+                    ? "text-[#16a34a]"
                     : "text-[#90a0b8] hover:bg-[#f6f8fc] hover:text-[#51627f]"
                 }`}
               >
                 <span
                   className={`flex h-10 w-10 items-center justify-center rounded-2xl transition ${
-                    isActive ? "bg-[#e8f0ff] shadow-sm" : ""
+                    isActive ? "bg-[#dcfce7] shadow-sm" : ""
                   }`}
                 >
                   <Icon className="h-5 w-5" />
                 </span>
                 <span
-                  className={`text-[11px] font-medium ${isActive ? "text-[#2f66dc]" : "text-[#90a0b8]"}`}
+                  className={`text-[11px] font-medium ${isActive ? "text-[#16a34a]" : "text-[#90a0b8]"}`}
                 >
                   {item.label}
                 </span>
@@ -68,3 +68,4 @@ export default function PatientBottomNav() {
     </nav>
   );
 }
+

@@ -117,7 +117,7 @@ export default function BookingModal({
       key: "pedi",
       label: "Nhi khoa",
       icon: Baby,
-      accent: "bg-[#eff6ff] text-[#2563eb]",
+      accent: "bg-[#ecfdf3] text-[#16a34a]",
     },
     {
       key: "neuro",
@@ -228,7 +228,7 @@ export default function BookingModal({
 
   const renderQr = (pattern: string[]) => {
     return (
-      <div className="grid aspect-square grid-cols-9 gap-0.5 rounded-3xl bg-white p-3 shadow-[inset_0_0_0_1px_rgba(37,99,235,0.08)]">
+      <div className="grid aspect-square grid-cols-9 gap-0.5 rounded-3xl bg-white p-3 shadow-[inset_0_0_0_1px_rgba(22,163,74,0.08)]">
         {pattern.flatMap((row, rowIndex) =>
           row
             .split("")
@@ -246,7 +246,7 @@ export default function BookingModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm px-4 py-6">
       <div className="flex max-h-[calc(100vh-3rem)] w-full max-w-sm flex-col overflow-hidden rounded-2xl bg-white shadow-[0_40px_90px_rgba(15,23,42,0.32)]">
-        <header className="rounded-t-2xl bg-[#2f66dc] px-4 py-4 text-white">
+        <header className="rounded-t-2xl bg-[#16a34a] px-4 py-4 text-white">
           <div className="flex items-center gap-3">
             <button
               type="button"
@@ -266,7 +266,7 @@ export default function BookingModal({
               {[1, 2, 3, 4, 5].map((currentStep) => (
                 <div
                   key={currentStep}
-                  className={`h-6 w-6 rounded-full ${step === currentStep ? "bg-white text-[#2f66dc]" : "bg-white/20 text-white/70"} flex items-center justify-center font-semibold`}
+                  className={`h-6 w-6 rounded-full ${step === currentStep ? "bg-white text-[#16a34a]" : "bg-white/20 text-white/70"} flex items-center justify-center font-semibold`}
                 >
                   {currentStep}
                 </div>
@@ -285,19 +285,19 @@ export default function BookingModal({
         <div className="flex-1 overflow-y-auto px-4 py-4">
           {step === 1 && (
             <>
-              <div className="mb-3 rounded-2xl border border-[#e7eef8] bg-[#f4f8ff] p-1.5">
+              <div className="mb-3 rounded-2xl border border-[#e7eef8] bg-[#f0fbf4] p-1.5">
                 <div className="grid grid-cols-2 gap-1.5">
                   <button
                     type="button"
                     onClick={() => switchMode("direct")}
-                    className={`rounded-full px-3 py-2 text-sm shadow-sm transition ${bookingMode === "direct" ? "bg-white font-semibold text-[#2f66dc] shadow-[0_8px_18px_rgba(47,102,220,0.12)]" : "bg-transparent font-medium text-[#667085] hover:bg-white/70"}`}
+                    className={`rounded-full px-3 py-2 text-sm shadow-sm transition ${bookingMode === "direct" ? "bg-white font-semibold text-[#16a34a] shadow-[0_8px_18px_rgba(22,163,74,0.12)]" : "bg-transparent font-medium text-[#667085] hover:bg-white/70"}`}
                   >
                     Khám trực tiếp
                   </button>
                   <button
                     type="button"
                     onClick={() => switchMode("online")}
-                    className={`rounded-full px-3 py-2 text-sm shadow-sm transition ${bookingMode === "online" ? "bg-white font-semibold text-[#2f66dc] shadow-[0_8px_18px_rgba(47,102,220,0.12)]" : "bg-transparent font-medium text-[#667085] hover:bg-white/70"}`}
+                    className={`rounded-full px-3 py-2 text-sm shadow-sm transition ${bookingMode === "online" ? "bg-white font-semibold text-[#16a34a] shadow-[0_8px_18px_rgba(22,163,74,0.12)]" : "bg-transparent font-medium text-[#667085] hover:bg-white/70"}`}
                   >
                     Tư vấn Online
                   </button>
@@ -308,7 +308,7 @@ export default function BookingModal({
                 </p>
               </div>
 
-              <div className="mb-4 rounded-2xl bg-[#f8fbff] px-4 py-3">
+              <div className="mb-4 rounded-2xl bg-[#f8fbf8] px-4 py-3">
                 <p className="text-[13px] font-semibold text-[#202939]">
                   {bookingMode === "direct"
                     ? "Đặt lịch khám trực tiếp"
@@ -327,10 +327,10 @@ export default function BookingModal({
                     key={s.key}
                     type="button"
                     onClick={() => setSelectedSpecialty(s.key)}
-                    className={`flex flex-col items-center gap-1 rounded-2xl px-2 py-2 text-sm transition ${selectedSpecialty === s.key ? "bg-[#f8fbff] text-[#202939] font-semibold shadow-sm ring-2 ring-[#2f66dc]/20" : "bg-white text-[#4b5568] border border-[#edf2f8]"}`}
+                    className={`flex flex-col items-center gap-1 rounded-2xl px-2 py-2 text-sm transition ${selectedSpecialty === s.key ? "bg-[#f8fbf8] text-[#202939] font-semibold shadow-sm ring-2 ring-[#16a34a]/20" : "bg-white text-[#4b5568] border border-[#edf2f8]"}`}
                   >
                     <div
-                      className={`flex h-10 w-10 items-center justify-center rounded-xl ${s.accent} ${selectedSpecialty === s.key ? "ring-2 ring-[#2f66dc]/20" : ""}`}
+                      className={`flex h-10 w-10 items-center justify-center rounded-xl ${s.accent} ${selectedSpecialty === s.key ? "ring-2 ring-[#16a34a]/20" : ""}`}
                     >
                       <s.icon className="h-5 w-5" />
                     </div>
@@ -367,7 +367,7 @@ export default function BookingModal({
 
                     <button
                       onClick={() => handleChooseDoctor(d)}
-                      className="rounded-full bg-[#2f66dc] px-3 py-2 text-sm font-medium text-white"
+                      className="rounded-full bg-[#16a34a] px-3 py-2 text-sm font-medium text-white"
                     >
                       {bookingMode === "direct" ? "Chọn bác sĩ" : "Chọn tư vấn"}
                     </button>
@@ -386,7 +386,7 @@ export default function BookingModal({
                     key={d}
                     type="button"
                     onClick={() => setSelectedDate(d)}
-                    className={`rounded-full px-3 py-2 text-sm transition ${selectedDate === d ? "bg-[#2f66dc] font-bold text-white shadow-[0_8px_18px_rgba(47,102,220,0.16)]" : "border border-[#d9e2f0] bg-white font-semibold text-[#475569] hover:border-[#b9c9e3] hover:bg-[#f8fbff]"}`}
+                    className={`rounded-full px-3 py-2 text-sm transition ${selectedDate === d ? "bg-[#16a34a] font-bold text-white shadow-[0_8px_18px_rgba(22,163,74,0.16)]" : "border border-[#d9e2f0] bg-white font-semibold text-[#475569] hover:border-[#86efac] hover:bg-[#f8fbf8]"}`}
                   >
                     {d}
                   </button>
@@ -399,7 +399,7 @@ export default function BookingModal({
                   <button
                     key={t}
                     onClick={() => setSelectedSlot(t)}
-                    className={`rounded-xl px-3 py-2 text-sm transition ${selectedSlot === t ? "bg-[#2f66dc] font-bold text-white shadow-[0_8px_18px_rgba(47,102,220,0.16)]" : "border border-[#d9e2f0] bg-white font-semibold text-[#475569] hover:border-[#b9c9e3] hover:bg-[#f8fbff]"}`}
+                    className={`rounded-xl px-3 py-2 text-sm transition ${selectedSlot === t ? "bg-[#16a34a] font-bold text-white shadow-[0_8px_18px_rgba(22,163,74,0.16)]" : "border border-[#d9e2f0] bg-white font-semibold text-[#475569] hover:border-[#86efac] hover:bg-[#f8fbf8]"}`}
                   >
                     {t}
                   </button>
@@ -409,14 +409,14 @@ export default function BookingModal({
               <div className="mt-4 flex justify-end gap-2">
                 <button
                   onClick={() => setStep(1)}
-                  className="rounded-full border border-[#cfd8e5] bg-white px-4 py-2 font-semibold text-[#202939] shadow-sm transition hover:border-[#9fb3d9] hover:bg-[#f8fbff]"
+                  className="rounded-full border border-[#cfd8e5] bg-white px-4 py-2 font-semibold text-[#202939] shadow-sm transition hover:border-[#9fb3d9] hover:bg-[#f8fbf8]"
                 >
                   Quay lại
                 </button>
                 <button
                   onClick={() => setStep(3)}
                   disabled={!selectedSlot}
-                  className="rounded-full bg-[#2f66dc] px-4 py-2 text-white disabled:opacity-60"
+                  className="rounded-full bg-[#16a34a] px-4 py-2 text-white disabled:opacity-60"
                 >
                   Tiếp tục
                 </button>
@@ -473,13 +473,13 @@ export default function BookingModal({
               <div className="mt-4 flex justify-end gap-2">
                 <button
                   onClick={() => setStep(2)}
-                  className="rounded-full border border-[#cfd8e5] bg-[#f8fbff] px-4 py-2 font-semibold text-[#202939] shadow-sm"
+                  className="rounded-full border border-[#cfd8e5] bg-[#f8fbf8] px-4 py-2 font-semibold text-[#202939] shadow-sm"
                 >
                   Quay lại
                 </button>
                 <button
                   onClick={handleConfirm}
-                  className="rounded-full bg-[#2f66dc] px-4 py-2 text-white"
+                  className="rounded-full bg-[#16a34a] px-4 py-2 text-white"
                 >
                   Xác nhận
                 </button>
@@ -503,10 +503,10 @@ export default function BookingModal({
                 <button
                   type="button"
                   onClick={() => setPaymentMethod("counter")}
-                  className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-left transition ${paymentMethod === "counter" ? "border-[#2f66dc] bg-[#f4f8ff] shadow-sm" : "border-[#e5e8ee] bg-white"}`}
+                  className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-left transition ${paymentMethod === "counter" ? "border-[#16a34a] bg-[#f0fbf4] shadow-sm" : "border-[#e5e8ee] bg-white"}`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#eef4ff] text-[#2f66dc]">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#dcfce7] text-[#16a34a]">
                       <CreditCard className="h-5 w-5" />
                     </div>
                     <div>
@@ -519,14 +519,14 @@ export default function BookingModal({
                     </div>
                   </div>
                   <span
-                    className={`h-4 w-4 rounded-full border-2 ${paymentMethod === "counter" ? "border-[#2f66dc] bg-[#2f66dc]" : "border-[#cfd7e4] bg-white"}`}
+                    className={`h-4 w-4 rounded-full border-2 ${paymentMethod === "counter" ? "border-[#16a34a] bg-[#16a34a]" : "border-[#cfd7e4] bg-white"}`}
                   />
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setPaymentMethod("qr")}
-                  className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-left transition ${paymentMethod === "qr" ? "border-[#2f66dc] bg-[#f4f8ff] shadow-sm" : "border-[#e5e8ee] bg-white"}`}
+                  className={`flex items-center justify-between rounded-2xl border px-4 py-3 text-left transition ${paymentMethod === "qr" ? "border-[#16a34a] bg-[#f0fbf4] shadow-sm" : "border-[#e5e8ee] bg-white"}`}
                 >
                   <div className="flex items-center gap-3">
                     <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#eefbf4] text-[#16a34a]">
@@ -542,13 +542,13 @@ export default function BookingModal({
                     </div>
                   </div>
                   <span
-                    className={`h-4 w-4 rounded-full border-2 ${paymentMethod === "qr" ? "border-[#2f66dc] bg-[#2f66dc]" : "border-[#cfd7e4] bg-white"}`}
+                    className={`h-4 w-4 rounded-full border-2 ${paymentMethod === "qr" ? "border-[#16a34a] bg-[#16a34a]" : "border-[#cfd7e4] bg-white"}`}
                   />
                 </button>
               </div>
 
               {paymentMethod === "qr" ? (
-                <div className="rounded-3xl border border-[#e5e8ee] bg-[#f8fbff] p-4">
+                <div className="rounded-3xl border border-[#e5e8ee] bg-[#f8fbf8] p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="text-[13px] font-semibold text-[#202939]">
@@ -558,7 +558,7 @@ export default function BookingModal({
                         {selectedDoctor.name} · {selectedDoctor.price}
                       </p>
                     </div>
-                    <div className="rounded-full bg-[#e8f0ff] px-3 py-1 text-[12px] font-semibold text-[#2f66dc]">
+                    <div className="rounded-full bg-[#dcfce7] px-3 py-1 text-[12px] font-semibold text-[#16a34a]">
                       Đang chờ thanh toán
                     </div>
                   </div>
@@ -577,9 +577,9 @@ export default function BookingModal({
                   </div>
                 </div>
               ) : (
-                <div className="rounded-3xl border border-[#e5e8ee] bg-[#f8fbff] p-4">
+                <div className="rounded-3xl border border-[#e5e8ee] bg-[#f8fbf8] p-4">
                   <div className="flex items-start gap-3">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#eef4ff] text-[#2f66dc]">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#dcfce7] text-[#16a34a]">
                       <CircleCheckBig className="h-5 w-5" />
                     </div>
                     <div>
@@ -606,7 +606,7 @@ export default function BookingModal({
                 <button
                   type="button"
                   onClick={handlePaymentDone}
-                  className="rounded-full bg-[#2f66dc] px-4 py-2 text-white"
+                  className="rounded-full bg-[#16a34a] px-4 py-2 text-white"
                 >
                   {paymentMethod === "qr"
                     ? "Tôi đã thanh toán"
@@ -618,17 +618,17 @@ export default function BookingModal({
 
           {step === 5 && selectedDoctor && (
             <div className="space-y-4">
-              <div className="rounded-3xl border border-[#dbe8ff] bg-[#f8fbff] p-4">
+              <div className="rounded-3xl border border-[#dbe8ff] bg-[#f8fbf8] p-4">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="text-[13px] font-semibold text-[#2f66dc]">
+                    <p className="text-[13px] font-semibold text-[#16a34a]">
                       Phiếu khám đã tạo
                     </p>
                     <h4 className="mt-1 text-[18px] font-bold text-[#202939]">
                       {selectedDoctor.name}
                     </h4>
                   </div>
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#eef4ff] text-[28px]">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#dcfce7] text-[28px]">
                     {selectedDoctor.avatar}
                   </div>
                 </div>
@@ -664,7 +664,7 @@ export default function BookingModal({
                   </div>
                   <div className="flex justify-between gap-3">
                     <span className="text-[#6b7280]">Phí khám</span>
-                    <span className="font-semibold text-[#2f66dc]">
+                    <span className="font-semibold text-[#16a34a]">
                       {selectedDoctor.price}
                     </span>
                   </div>
@@ -681,7 +681,7 @@ export default function BookingModal({
                       Dùng mã này khi đến khám để quét nhanh cho bệnh nhân.
                     </p>
                   </div>
-                  <div className="rounded-full bg-[#e8f0ff] px-3 py-1 text-[12px] font-semibold text-[#2f66dc]">
+                  <div className="rounded-full bg-[#dcfce7] px-3 py-1 text-[12px] font-semibold text-[#16a34a]">
                     Sẵn sàng quét
                   </div>
                 </div>
@@ -690,7 +690,7 @@ export default function BookingModal({
                   <div className="w-56">{renderQr(CHECKIN_QR_PATTERN)}</div>
                 </div>
 
-                <div className="mt-4 rounded-2xl bg-[#f8fbff] px-4 py-3 text-[12px] leading-5 text-[#5b6575]">
+                <div className="mt-4 rounded-2xl bg-[#f8fbf8] px-4 py-3 text-[12px] leading-5 text-[#5b6575]">
                   Khi đến phòng khám, chỉ cần đưa phiếu này để nhân viên quét mã
                   và đối chiếu nhanh thông tin.
                 </div>
@@ -709,7 +709,7 @@ export default function BookingModal({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="rounded-full bg-[#2f66dc] px-4 py-2 text-white"
+                  className="rounded-full bg-[#16a34a] px-4 py-2 text-white"
                 >
                   Đóng
                 </button>
@@ -721,3 +721,4 @@ export default function BookingModal({
     </div>
   );
 }
+
