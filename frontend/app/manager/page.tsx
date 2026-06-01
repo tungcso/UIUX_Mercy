@@ -11,6 +11,7 @@ import CrmEconomyDashboard from "./_components/CrmEconomyDashboard";
 import HrEquipmentDashboard, {
   INITIAL_MACHINES,
   type Machine,
+  type CommandState,
 } from "./_components/HrEquipmentDashboard";
 import ChatbotOperationsDashboard from "./_components/ChatbotOperationsDashboard";
 
@@ -32,11 +33,19 @@ function ManagerPageContent() {
   const searchParams = useSearchParams();
   const [isSpecModalOpen, setIsSpecModalOpen] = useState(false);
   const [machines, setMachines] = useState<Machine[]>(INITIAL_MACHINES);
+  const [cmd1State, setCmd1State] = useState<CommandState>("pending");
+  const [cmd2State, setCmd2State] = useState<CommandState>("pending");
 
-  // Derived: is any machine currently in error state?
+  const totalMachines = machines.length;
+  const availableMachines = machines.filter(
+    (m) => m.status === "running" || m.status === "repairing",
+  ).length;
   const hasMriError = machines.some(
     (m) => m.code === "EQ-MRI-02" && m.status === "error",
   );
+  const hasIsolatedMachine = machines.some((m) => m.status === "idle");
+  const showDeptOverload = cmd1State !== "approved";
+  const showMriError = hasMriError;
 
   const sectionParam = searchParams.get("section");
   const activeSection: ManagerSection =
@@ -82,7 +91,9 @@ function ManagerPageContent() {
         <Sidebar
           activeSection={activeSection}
           onSectionChange={handleSectionChange}
-          hasMriError={hasMriError}
+          showDeptOverload={showDeptOverload}
+          hasMriError={showMriError}
+          hasIsolatedMachine={hasIsolatedMachine}
         />
 
         <main className="flex-1 overflow-hidden px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
@@ -209,7 +220,7 @@ function ManagerPageContent() {
                           Thiết Bị Khả Dụng
                         </div>
                         <div className="mt-1.5 text-2xl font-bold text-slate-900">
-                          3 / 4 máy
+                          {availableMachines} / {totalMachines} máy
                         </div>
                       </div>
                       <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-rose-50 text-rose-600 animate-pulse">
@@ -228,12 +239,20 @@ function ManagerPageContent() {
                         </svg>
                       </div>
                     </div>
-                    <div className="mt-2.5 text-[11px] font-semibold text-rose-600 flex items-center gap-1">
-                      <span>🔴 1 máy MRI lỗi</span>
-                      <span className="text-slate-400 font-normal hover:underline">
-                        • Nhấp để điều phối
-                      </span>
-                    </div>
+                    {(hasMriError || hasIsolatedMachine) && (
+                      <div className="mt-2.5 text-[11px] font-semibold text-rose-600 flex items-center gap-1">
+                        <span>
+                          {hasMriError
+                            ? "🔴 1 máy MRI lỗi"
+                            : "🔴 1 máy đã ngắt điện cách ly"}
+                        </span>
+                        {hasMriError ? (
+                          <span className="text-slate-400 font-normal hover:underline">
+                            • Nhấp để điều phối
+                          </span>
+                        ) : null}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -314,6 +333,17 @@ function ManagerPageContent() {
               <HrEquipmentDashboard
                 machines={machines}
                 setMachines={setMachines}
+                cmd1State={cmd1State}
+                cmd2State={cmd2State}
+                onApproveCmd1={() => setCmd1State("approved")}
+                onRejectCmd1={() => setCmd1State("rejected")}
+                onApproveCmd2={() => setCmd2State("approved")}
+                onRejectCmd2={() => setCmd2State("rejected")}
+                onReset={() => {
+                  setCmd1State("pending");
+                  setCmd2State("pending");
+                  setMachines(INITIAL_MACHINES);
+                }}
               />
             ) : null}
 
