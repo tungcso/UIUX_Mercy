@@ -20,7 +20,7 @@ import {
   Zap,
 } from "lucide-react";
 
-type CommandState = "pending" | "approved" | "rejected";
+export type CommandState = "pending" | "approved" | "rejected";
 
 export type Machine = {
   id: string;
@@ -69,29 +69,38 @@ export const INITIAL_MACHINES: Machine[] = [
 type HrEquipmentDashboardProps = {
   machines: Machine[];
   setMachines: React.Dispatch<React.SetStateAction<Machine[]>>;
+  cmd1State: CommandState;
+  cmd2State: CommandState;
+  onApproveCmd1?: () => void;
+  onRejectCmd1?: () => void;
+  onApproveCmd2?: () => void;
+  onRejectCmd2?: () => void;
+  onReset?: () => void;
 };
 
 export default function HrEquipmentDashboard({
   machines,
   setMachines,
+  cmd1State,
+  cmd2State,
+  onApproveCmd1,
+  onRejectCmd1,
+  onApproveCmd2,
+  onRejectCmd2,
+  onReset,
 }: HrEquipmentDashboardProps) {
   const [selectedMachine, setSelectedMachine] = useState<Machine | null>(null);
-  // Command 1 State
-  const [cmd1State, setCmd1State] = useState<CommandState>("pending");
-  // Command 2 State
-  const [cmd2State, setCmd2State] = useState<CommandState>("pending");
 
   const handleApproveCmd1 = () => {
-    setCmd1State("approved");
+    onApproveCmd1?.();
   };
 
   const handleRejectCmd1 = () => {
-    setCmd1State("rejected");
+    onRejectCmd1?.();
   };
 
   const handleApproveCmd2 = () => {
-    setCmd2State("approved");
-    // Dynamically change machine status to repairing or running
+    onApproveCmd2?.();
     setMachines((prev) =>
       prev.map((m) =>
         m.code === "EQ-MRI-02"
@@ -102,15 +111,12 @@ export default function HrEquipmentDashboard({
   };
 
   const handleRejectCmd2 = () => {
-    setCmd2State("rejected");
+    onRejectCmd2?.();
   };
 
   const handleReset = () => {
     setSelectedMachine(null);
-    setCmd1State("pending");
-    setCmd2State("pending");
-    // Reset is handled by page.tsx via the shared INITIAL_MACHINES constant
-    setMachines(INITIAL_MACHINES);
+    onReset?.();
   };
 
   return (
@@ -507,7 +513,7 @@ export default function HrEquipmentDashboard({
                             : m,
                         ),
                       );
-                      setCmd2State("approved"); // Sync with top duyệt lệnh 2!
+                      onApproveCmd2?.(); // Sync with top duyệt lệnh 2!
                       setSelectedMachine(null);
                     }}
                     className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-blue-600 text-white px-4 py-2.5 text-xs font-bold shadow-sm transition hover:bg-blue-700 active:scale-95 shadow-blue-200"

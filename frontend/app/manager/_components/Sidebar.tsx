@@ -6,13 +6,17 @@ type SidebarSection = "overview" | "crm" | "hr" | "chatbot";
 type SidebarProps = {
   activeSection?: SidebarSection;
   onSectionChange?: (section: SidebarSection) => void;
+  showDeptOverload?: boolean;
   hasMriError?: boolean;
+  hasIsolatedMachine?: boolean;
 };
 
 export default function Sidebar({
   activeSection = "overview",
   onSectionChange,
+  showDeptOverload = true,
   hasMriError = false,
+  hasIsolatedMachine = false,
 }: SidebarProps) {
   const baseItemClass =
     "flex w-full items-center gap-3 rounded-[18px] px-4 py-3 text-left text-sm font-medium transition-colors duration-150";
@@ -47,14 +51,21 @@ export default function Sidebar({
             </p>
           </div>
           <div className="space-y-2">
-            <div className="rounded-lg bg-white/70 px-2 py-1 text-xs font-semibold text-amber-700 border border-amber-100">
-              ⚠️ Khoa Nội Quá Tải (&gt;85%)
-            </div>
-            {hasMriError && (
+            {showDeptOverload ? (
+              <div className="rounded-lg bg-white/70 px-2 py-1 text-xs font-semibold text-amber-700 border border-amber-100">
+                ⚠️ Khoa Nội Quá Tải (&gt;85%)
+              </div>
+            ) : null}
+            {hasMriError ? (
               <div className="rounded-lg bg-white/70 px-2 py-1 text-xs font-semibold text-rose-600 border border-rose-100 animate-pulse">
                 🔴 Máy MRI báo Lỗi Đỏ
               </div>
-            )}
+            ) : null}
+            {!hasMriError && hasIsolatedMachine ? (
+              <div className="rounded-lg bg-white/70 px-2 py-1 text-xs font-semibold text-rose-600 border border-rose-100 animate-pulse">
+                🔴 1 máy đã ngắt điện cách ly
+              </div>
+            ) : null}
           </div>
         </div>
 
