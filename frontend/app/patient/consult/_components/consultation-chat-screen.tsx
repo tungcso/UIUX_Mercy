@@ -911,7 +911,7 @@ export default function ConsultationChatScreen({
     }
 
     if (action.value === "connect-doctor") {
-      router.push("/patient/consult/new?mode=doctor&emergency=1");
+      router.push(`/patient/consult/doctor-${Date.now()}?mode=doctor&emergency=1`);
       return;
     }
 
@@ -1073,7 +1073,7 @@ export default function ConsultationChatScreen({
               </span>
               <button
                 type="button"
-                onClick={() => router.push("/patient/consult/new?mode=ai")}
+                onClick={() => router.push(`/patient/consult/ai-${Date.now()}?mode=ai`)}
                 className="min-h-11 rounded-2xl bg-[#f1f5f9] px-4 py-2 text-sm font-semibold text-[#475569] border border-[#e6e9ee]"
               >
                 Chat mới

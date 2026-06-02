@@ -94,7 +94,7 @@ const personalizedTips = [
 ];
 
 function getTopicQuery(topic: string) {
-  return `/patient/consult/new?mode=ai&topic=${encodeURIComponent(topic)}`;
+  return `/patient/consult/ai-${Date.now()}?mode=ai&topic=${encodeURIComponent(topic)}`;
 }
 
 function readStoredConsultCases() {
@@ -187,7 +187,7 @@ export default function PatientPage() {
   };
 
   const goToAiConsult = () => {
-    router.push("/patient/consult/new?mode=ai");
+    router.push(`/patient/consult/ai-${Date.now()}?mode=ai`);
   };
 
   const openConsultCase = (caseItem: ConsultCase) => {
