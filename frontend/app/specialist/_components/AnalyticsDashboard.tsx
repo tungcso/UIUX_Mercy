@@ -323,31 +323,50 @@ export default function AnalyticsDashboard() {
           </div>
         </div>
 
-        <div className="flex items-end gap-1.5">
-          {[22, 14, 8, 5, 4, 6, 18, 45, 72, 88, 94, 87, 78, 82, 90, 85, 76, 68, 55, 42, 38, 31, 27, 20].map(
-            (v, i) => (
-              <div key={i} className="group relative flex flex-1 flex-col items-center">
-                <div
-                  className={`w-full rounded-t-md transition-all ${
-                    v >= 80
-                      ? "bg-emerald-600"
-                      : v >= 60
-                      ? "bg-emerald-500"
-                      : v >= 40
-                      ? "bg-emerald-300"
-                      : "bg-emerald-100"
-                  }`}
-                  style={{ height: `${(v / 100) * 80}px` }}
-                />
-                {i % 4 === 0 && (
-                  <span className="mt-1 text-[9px] text-slate-400">
-                    {String(i).padStart(2, "0")}h
-                  </span>
-                )}
+        {/* Bars */}
+        {(() => {
+          const hourlyData = [27, 18, 10, 6, 5, 8, 22, 56, 89, 108, 116, 107, 96, 101, 111, 105, 94, 84, 68, 52, 47, 38, 33, 25];
+          const maxVal = Math.max(...hourlyData);
+          return (
+            <>
+              <div className="flex items-end gap-1.5 h-[80px]">
+                {hourlyData.map((v, i) => (
+                  <div key={i} className="group relative flex flex-1 flex-col items-center justify-end h-full">
+                    {/* Tooltip */}
+                    <div className="pointer-events-none absolute bottom-[calc(100%+4px)] left-1/2 -translate-x-1/2 hidden group-hover:flex items-center whitespace-nowrap rounded-lg bg-slate-800 px-2 py-1 text-[10px] font-semibold text-white shadow-lg z-10">
+                      {v} lượt
+                    </div>
+                    <div
+                      className={`w-full rounded-t-md transition-all ${
+                        v >= maxVal * 0.8
+                          ? "bg-emerald-600"
+                          : v >= maxVal * 0.6
+                          ? "bg-emerald-500"
+                          : v >= maxVal * 0.4
+                          ? "bg-emerald-300"
+                          : "bg-emerald-100"
+                      }`}
+                      style={{ height: `${(v / maxVal) * 80}px` }}
+                    />
+                  </div>
+                ))}
               </div>
-            )
-          )}
-        </div>
+
+              {/* X-axis labels */}
+              <div className="mt-1.5 flex gap-1.5">
+                {hourlyData.map((_, i) => (
+                  <div key={i} className="flex flex-1 justify-center">
+                    {i % 4 === 0 && (
+                      <span className="text-[9px] text-slate-400">
+                        {String(i).padStart(2, "0")}h
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </>
+          );
+        })()}
       </div>
     </div>
   );

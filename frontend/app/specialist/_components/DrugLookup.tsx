@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   Search,
   Pill,
@@ -114,6 +114,157 @@ const riskConfig = {
   low: { label: "Nhẹ", class: "bg-blue-100 text-blue-700 border-blue-200", icon: "🔵" },
 };
 
+function InteractionChecker({
+  drugDatabase,
+  interactionCheck,
+  toggleInteractionSelect,
+  handleInteractionCheck,
+  checkResult,
+  riskConfig,
+}: {
+  drugDatabase: Drug[];
+  interactionCheck: string[];
+  toggleInteractionSelect: (id: string) => void;
+  handleInteractionCheck: () => void;
+  checkResult: Array<{ d1: string; d2: string; interaction: Drug["interactions"][0] }> | null;
+  riskConfig: Record<string, { label: string; class: string; icon: string }>;
+}) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isOpen, setIsOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const selectedDrugs = drugDatabase.filter((d) => interactionCheck.includes(d.id));
+  const suggestions = drugDatabase.filter(
+    (d) =>
+      !interactionCheck.includes(d.id) &&
+      (d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        d.generic.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
+  return (
+    <div className="rounded-[1.4rem] border border-slate-200 bg-white p-4">
+      <div className="mb-3 flex items-center gap-2">
+        <ShieldAlert className="h-4 w-4 text-amber-500" />
+        <p className="text-sm font-bold text-slate-800">Kiểm tra tương tác thuốc</p>
+      </div>
+
+      {/* Combobox input area */}
+      <div
+        className="min-h-[44px] cursor-text rounded-2xl border border-slate-200 bg-slate-50 px-2.5 py-2 transition focus-within:border-amber-400 focus-within:ring-4 focus-within:ring-amber-100"
+        onClick={() => { setIsOpen(true); inputRef.current?.focus(); }}
+      >
+        {/* Selected chips */}
+        <div className="flex flex-wrap gap-1.5">
+          {selectedDrugs.map((d) => (
+            <span
+              key={d.id}
+              className="flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-100 pl-2.5 pr-1.5 py-0.5 text-xs font-semibold text-emerald-700"
+            >
+              {d.name}
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); toggleInteractionSelect(d.id); }}
+                className="flex h-4 w-4 items-center justify-center rounded-full text-emerald-500 hover:bg-emerald-200 hover:text-emerald-800 transition-colors"
+                aria-label={`Bỏ chọn ${d.name}`}
+              >
+                <X className="h-2.5 w-2.5" />
+              </button>
+            </span>
+          ))}
+
+          {/* Search input */}
+          <input
+            ref={inputRef}
+            type="text"
+            value={searchQuery}
+            onChange={(e) => { setSearchQuery(e.target.value); setIsOpen(true); }}
+            onFocus={() => setIsOpen(true)}
+            onBlur={() => setTimeout(() => setIsOpen(false), 150)}
+            placeholder={selectedDrugs.length === 0 ? "Tìm và thêm thuốc..." : "Thêm thuốc khác..."}
+            className="min-w-[120px] flex-1 bg-transparent py-0.5 text-xs text-slate-700 outline-none placeholder:text-slate-400"
+          />
+        </div>
+      </div>
+
+      {/* Dropdown suggestions */}
+      {isOpen && searchQuery.length > 0 && (
+        <div className="relative">
+          <div className="absolute left-0 right-0 top-1 z-20 overflow-hidden rounded-2xl border border-slate-200 bg-white py-1 shadow-[0_8px_30px_rgba(15,23,42,0.12)]">
+            {suggestions.length === 0 ? (
+              <p className="px-4 py-3 text-xs text-slate-400">
+                {interactionCheck.length > 0 && drugDatabase.filter(d => d.name.toLowerCase().includes(searchQuery.toLowerCase())).every(d => interactionCheck.includes(d.id))
+                  ? "Thuốc này đã được chọn"
+                  : "Không tìm thấy thuốc phù hợp"}
+              </p>
+            ) : (
+              suggestions.slice(0, 6).map((d) => (
+                <button
+                  key={d.id}
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    toggleInteractionSelect(d.id);
+                    setSearchQuery("");
+                    inputRef.current?.focus();
+                  }}
+                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-xs transition-colors hover:bg-amber-50"
+                >
+                  <Pill className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+                  <div>
+                    <p className="font-semibold text-slate-800">{d.name}</p>
+                    <p className="text-slate-400">{d.category}</p>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Hint */}
+      <p className="mt-2 text-[11px] text-slate-400">
+        {selectedDrugs.length === 0
+          ? "Chọn ít nhất 2 thuốc để kiểm tra"
+          : selectedDrugs.length === 1
+          ? "Chọn thêm 1 thuốc nữa để kiểm tra"
+          : `Đã chọn ${selectedDrugs.length} thuốc — sẵn sàng kiểm tra`}
+      </p>
+
+      <button
+        type="button"
+        onClick={handleInteractionCheck}
+        disabled={interactionCheck.length < 2}
+        className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-amber-500/20 transition-all hover:-translate-y-0.5 hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <Zap className="h-4 w-4" />
+        Kiểm tra ngay
+      </button>
+
+      {checkResult !== null && (
+        <div className="mt-3 space-y-2">
+          {checkResult.length === 0 ? (
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-xs font-semibold text-emerald-700">
+              ✓ Không phát hiện tương tác nguy hiểm giữa các thuốc đã chọn
+            </div>
+          ) : (
+            checkResult.map((r, i) => {
+              const risk = riskConfig[r.interaction.risk];
+              return (
+                <div key={i} className={`rounded-xl border px-3 py-2.5 text-xs ${risk.class}`}>
+                  <p className="font-bold">
+                    {risk.icon} {r.d1} × {r.d2}
+                  </p>
+                  <p className="mt-0.5 leading-5">{r.interaction.note}</p>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function DrugLookup() {
   const [query, setQuery] = useState("");
   const [selectedDrug, setSelectedDrug] = useState<Drug | null>(drugDatabase[0]);
@@ -217,64 +368,14 @@ export default function DrugLookup() {
           </div>
 
           {/* Interaction Checker */}
-          <div className="rounded-[1.4rem] border border-slate-200 bg-white p-4">
-            <div className="mb-3 flex items-center gap-2">
-              <ShieldAlert className="h-4 w-4 text-amber-500" />
-              <p className="text-sm font-bold text-slate-800">Kiểm tra tương tác thuốc</p>
-            </div>
-            <p className="mb-3 text-xs text-slate-500">Chọn 2+ thuốc để kiểm tra tương tác:</p>
-            <div className="space-y-1.5">
-              {drugDatabase.map((d) => (
-                <label
-                  key={d.id}
-                  className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2 text-xs transition-all ${
-                    interactionCheck.includes(d.id)
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-700 font-semibold"
-                      : "border-slate-100 bg-slate-50 text-slate-600 hover:border-slate-200"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={interactionCheck.includes(d.id)}
-                    onChange={() => toggleInteractionSelect(d.id)}
-                    className="h-3.5 w-3.5 accent-emerald-600"
-                  />
-                  {d.name}
-                </label>
-              ))}
-            </div>
-            <button
-              type="button"
-              onClick={handleInteractionCheck}
-              disabled={interactionCheck.length < 2}
-              className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-bold text-white shadow-md shadow-amber-500/20 transition-all hover:-translate-y-0.5 hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              <Zap className="h-4 w-4" />
-              Kiểm tra ngay
-            </button>
-
-            {checkResult !== null && (
-              <div className="mt-3 space-y-2">
-                {checkResult.length === 0 ? (
-                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
-                    ✓ Không phát hiện tương tác nguy hiểm
-                  </div>
-                ) : (
-                  checkResult.map((r, i) => {
-                    const risk = riskConfig[r.interaction.risk];
-                    return (
-                      <div key={i} className={`rounded-xl border px-3 py-2 text-xs ${risk.class}`}>
-                        <p className="font-bold">
-                          {risk.icon} {r.d1} × {r.d2}
-                        </p>
-                        <p className="mt-0.5">{r.interaction.note}</p>
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-            )}
-          </div>
+          <InteractionChecker
+            drugDatabase={drugDatabase}
+            interactionCheck={interactionCheck}
+            toggleInteractionSelect={toggleInteractionSelect}
+            handleInteractionCheck={handleInteractionCheck}
+            checkResult={checkResult}
+            riskConfig={riskConfig}
+          />
         </div>
 
         {/* Right: Drug Detail */}
