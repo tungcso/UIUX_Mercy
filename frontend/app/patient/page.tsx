@@ -94,7 +94,7 @@ const personalizedTips = [
 ];
 
 function getTopicQuery(topic: string) {
-  return `/patient/consult/new?mode=ai&topic=${encodeURIComponent(topic)}`;
+  return `/patient/consult/ai-${Date.now()}?mode=ai&topic=${encodeURIComponent(topic)}`;
 }
 
 function readStoredConsultCases() {
@@ -187,7 +187,7 @@ export default function PatientPage() {
   };
 
   const goToAiConsult = () => {
-    router.push("/patient/consult/new?mode=ai");
+    router.push(`/patient/consult/ai-${Date.now()}?mode=ai`);
   };
 
   const openConsultCase = (caseItem: ConsultCase) => {
@@ -196,7 +196,7 @@ export default function PatientPage() {
 
   return (
     <main className="flex h-full min-h-0 justify-center bg-[#e9f5ed] px-2 py-2 sm:px-4 sm:py-5">
-      <div className="mx-auto flex h-full min-h-0 w-full max-w-97.5 flex-col overflow-hidden rounded-3xl border border-[#d7eadf] bg-[#f7fbf8] shadow-[0_18px_48px_rgba(15,23,42,0.12)]">
+      <div className="relative mx-auto flex h-full min-h-0 w-full max-w-97.5 flex-col overflow-hidden rounded-3xl border border-[#d7eadf] bg-[#f7fbf8] shadow-[0_18px_48px_rgba(15,23,42,0.12)]">
         <section className="relative overflow-hidden rounded-b-[30px] bg-linear-to-br from-[#1fa24a] via-[#16a34a] to-[#10813a] px-4 pb-4 pt-3 text-white">
           <div className="absolute -right-8 -top-8 h-28 w-28 rounded-full bg-white/10 blur-2xl" />
           <div className="absolute -bottom-10 left-8 h-28 w-28 rounded-full bg-emerald-200/15 blur-2xl" />
@@ -420,14 +420,14 @@ function SymptomSummarySheet({
   if (!summary) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center px-3 pb-3">
+    <div className="absolute inset-0 z-50 flex items-end justify-center px-3 pb-3">
       <button
         type="button"
         aria-label="Đóng tóm tắt triệu chứng"
         className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-md rounded-[28px] bg-white p-4 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
+      <div className="relative w-full rounded-[28px] bg-white p-4 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
         <button
           type="button"
           aria-label="Đóng"

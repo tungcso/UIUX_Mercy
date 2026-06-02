@@ -16,10 +16,12 @@ import {
   Archive,
   Bot,
   CalendarCheck2,
+  CalendarDays,
   ChevronRight,
   Clock3,
   FileDown,
   Filter,
+  MessageCircle,
   MoreHorizontal,
   PhoneCall,
   Pill,
@@ -28,7 +30,9 @@ import {
   Search,
   Stethoscope,
   Trash2,
+  Video,
   X,
+  Activity,
 } from "lucide-react";
 import {
   buildConsultCase,
@@ -46,7 +50,120 @@ type SheetState =
   | "case-details"
   | "export-report"
   | "emergency"
+  | "online-consult"
+  | "doctor-match"
+  | "doctor-directory"
   | null;
+
+type ConsultTab = "cases" | "doctor";
+type AppointmentMode = "Online" | "Offline";
+type OnlineConsultType = "Chat" | "Gọi thoại" | "Video call";
+
+type Doctor = {
+  id: string;
+  name: string;
+  specialty: string;
+  rating: string;
+  consults: string;
+  availability: string;
+  lastConsult?: string;
+};
+
+type OnlineConsult = {
+  id: string;
+  doctorName: string;
+  specialty: string;
+  type: OnlineConsultType;
+  date: string;
+  status: "Đang kết nối" | "Hoàn thành";
+};
+
+const doctorSpecialties = [
+  "Tất cả",
+  "Tim mạch",
+  "Hô hấp",
+  "Thần kinh",
+  "Da liễu",
+  "Nhi khoa",
+];
+
+const onlineConsultOptions: Array<{
+  type: OnlineConsultType;
+  responseTime: string;
+  description: string;
+}> = [
+  {
+    type: "Chat",
+    responseTime: "~5 phút",
+    description: "Nhắn tin với bác sĩ phù hợp",
+  },
+  {
+    type: "Gọi thoại",
+    responseTime: "10-15 phút",
+    description: "Trao đổi nhanh bằng cuộc gọi",
+  },
+  {
+    type: "Video call",
+    responseTime: "15-30 phút",
+    description: "Tư vấn trực tiếp qua video",
+  },
+];
+
+const doctorsList: Doctor[] = [
+  {
+    id: "doctor-nguyen-a",
+    name: "BS Nguyễn Văn A",
+    specialty: "Tim mạch",
+    rating: "4.9",
+    consults: "2000 lượt tư vấn",
+    availability: "Online",
+    lastConsult: "24/07",
+  },
+  {
+    id: "doctor-tran-b",
+    name: "BS Trần Thị B",
+    specialty: "Hô hấp",
+    rating: "4.8",
+    consults: "1500 lượt tư vấn",
+    availability: "Online hôm nay",
+    lastConsult: "15/06",
+  },
+  {
+    id: "doctor-le-c",
+    name: "BS Lê Minh C",
+    specialty: "Thần kinh",
+    rating: "4.9",
+    consults: "980 lượt tư vấn",
+    availability: "Phản hồi 15 phút",
+  },
+  {
+    id: "doctor-pham-d",
+    name: "BS Phạm Thu D",
+    specialty: "Da liễu",
+    rating: "4.7",
+    consults: "860 lượt tư vấn",
+    availability: "Online",
+  },
+  {
+    id: "doctor-hoang-e",
+    name: "BS Hoàng Anh E",
+    specialty: "Nhi khoa",
+    rating: "4.8",
+    consults: "1200 lượt tư vấn",
+    availability: "Online hôm nay",
+  },
+];
+
+const initialOnlineConsults: OnlineConsult[] = [
+  {
+    id: "online-chat-cardio",
+    doctorName: "BS Nguyễn Văn A",
+    specialty: "Tim mạch",
+    type: "Chat",
+    date: "24/07",
+    status: "Hoàn thành",
+  },
+];
 
 type FilterState = {
   types: ConsultCaseType[];
@@ -199,6 +316,7 @@ function normalize(text: string) {
 
 export default function ConsultationsInbox() {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState<ConsultTab>("cases");
   const [cases, setCases] = useState<ConsultCase[]>(consultCases);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchInput, setSearchInput] = useState("");
@@ -210,6 +328,32 @@ export default function ConsultationsInbox() {
   const [selectedCase, setSelectedCase] = useState<ConsultCase | null>(null);
   const [pinnedCaseIds, setPinnedCaseIds] = useState<string[]>([]);
   const [toast, setToast] = useState<string | null>(null);
+
+  // Doctor tab state
+  const [onlineConsults, setOnlineConsults] = useState<OnlineConsult[]>(initialOnlineConsults);
+  const [doctorFilter, setDoctorFilter] = useState("Tất cả");
+  const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+  const [onlineType, setOnlineType] = useState<OnlineConsultType>("Chat");
+
+  const [activeCall, setActiveCall] = useState<{
+    doctor: Doctor;
+    type: OnlineConsultType;
+  } | null>(null);
+  const [chatMessages, setChatMessages] = useState<Array<{ sender: "user" | "doctor"; text: string; time: string }>>([]);
+  const [callDuration, setCallDuration] = useState(0);
+
+  useEffect(() => {
+    let timer: any;
+    if (activeCall && activeCall.type !== "Chat") {
+      setCallDuration(0);
+      timer = window.setInterval(() => {
+        setCallDuration((prev) => prev + 1);
+      }, 1000);
+    }
+    return () => {
+      if (timer) window.clearInterval(timer);
+    };
+  }, [activeCall]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setLoading(false), 350);
@@ -290,6 +434,90 @@ export default function ConsultationsInbox() {
   const showToast = (message: string) => {
     setToast(message);
     window.setTimeout(() => setToast(null), 1800);
+  };
+
+  const filteredDoctors =
+    doctorFilter === "Tất cả"
+      ? doctorsList
+      : doctorsList.filter((doctor) => doctor.specialty === doctorFilter);
+  const myDoctors = doctorsList.filter((doctor) => doctor.lastConsult);
+
+  const openOnlineConsult = (type: OnlineConsultType = "Chat") => {
+    setOnlineType(type);
+    setDoctorFilter("Tất cả");
+    setSheet("doctor-directory");
+  };
+
+  const openDoctorDirectory = () => {
+    setDoctorFilter("Tất cả");
+    setSheet("doctor-directory");
+  };
+
+  const openDoctorChat = (doctor: Doctor, type: OnlineConsultType = "Chat") => {
+    setSelectedDoctor(doctor);
+    setOnlineType(type);
+    setSheet("doctor-match");
+  };
+
+  const startInteractiveCall = (doctor: Doctor, type: OnlineConsultType) => {
+    setActiveCall({ doctor, type });
+    if (type === "Chat") {
+      setChatMessages([
+        {
+          sender: "doctor",
+          text: `Xin chào, tôi là ${doctor.name}, chuyên khoa ${doctor.specialty}. Rất vui được hỗ trợ tư vấn online cho bạn. Bạn đang gặp phải vấn đề gì?`,
+          time: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+        }
+      ]);
+    }
+    setSheet(null);
+  };
+
+  const handleSendMessage = (text: string) => {
+    if (!text.trim() || !activeCall) return;
+
+    const newMsg = {
+      sender: "user" as const,
+      text: text.trim(),
+      time: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+    };
+
+    setChatMessages((prev) => [...prev, newMsg]);
+
+    setTimeout(() => {
+      if (!activeCall) return;
+      const doctorReplies = [
+        `Chào bạn, tôi là ${activeCall.doctor.name}. Tôi đã nhận được tin nhắn của bạn. Bạn hãy mô tả rõ hơn về các triệu chứng hiện tại nhé.`,
+        "Cảm ơn bạn đã chia sẻ. Tình trạng này xuất hiện lâu chưa và bạn đã dùng thuốc gì chưa?",
+        "Tôi hiểu rồi. Bạn có cảm thấy đau đầu, chóng mặt hay khó thở đi kèm không?",
+        "Tốt nhất bạn nên nghỉ ngơi và theo dõi sát sao. Tôi sẽ kê đơn thuốc hỗ trợ tạm thời cho bạn.",
+        "Nếu triệu chứng trở nên nghiêm trọng hơn, hãy thông báo ngay cho tôi hoặc đến cơ sở y tế gần nhất nhé.",
+      ];
+      const replyText = doctorReplies[Math.floor(Math.random() * doctorReplies.length)];
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          sender: "doctor" as const,
+          text: replyText,
+          time: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
+        },
+      ]);
+    }, 1500);
+  };
+
+  const connectDoctor = () => {
+    const doctor = selectedDoctor ?? doctorsList[0];
+    const nextConsult: OnlineConsult = {
+      id: `online-${Date.now()}`,
+      doctorName: doctor.name,
+      specialty: doctor.specialty,
+      type: onlineType,
+      date: "Hôm nay",
+      status: "Đang kết nối",
+    };
+    setOnlineConsults((current) => [nextConsult, ...current]);
+    setSheet(null);
+    startInteractiveCall(doctor, onlineType);
   };
 
   const openCase = (caseItem: ConsultCase) => {
@@ -378,224 +606,733 @@ export default function ConsultationsInbox() {
     <main className="relative flex h-full min-h-0 bg-[#edf6fb] px-2 py-2 sm:px-4 sm:py-5">
       <div className="relative mx-auto flex h-full min-h-0 w-full max-w-97.5 flex-col overflow-hidden rounded-3xl border border-[#dbeaf1] bg-[#f8fbfd] shadow-[0_18px_48px_rgba(15,23,42,0.12)]">
         <Header
-          searchOpen={searchOpen}
-          searchInput={searchInput}
-          filtersActive={isFilterActive(filters)}
-          onSearchOpen={() => setSearchOpen(true)}
-          onSearchClose={() => {
-            setSearchOpen(false);
-            setSearchInput("");
-          }}
-          onSearchChange={setSearchInput}
-          onFilterOpen={() => setSheet("filter")}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
         />
 
-        <div className="px-4 pt-4">
-          <div className="mb-3 rounded-2xl border border-[#e6f3f0] bg-white px-4 py-3">
-            <p className="text-[13px] font-semibold text-[#10233f]">
-              Sức khỏe của bạn
-            </p>
-            <div className="mt-2 flex items-center gap-3 text-[13px] text-[#475569]">
-              <span className="font-semibold text-[#dc2626]">
-                {summary.urgent} cần chú ý
-              </span>
-              <span className="text-[#334155">
-                {summary.monitoring} đang theo dõi
-              </span>
-              <span className="text-[#065f46]">{summary.stable} ổn định</span>
-            </div>
-          </div>
-
-          <PrimaryCTAButton onClick={() => setSheet("new-case")} />
-        </div>
-
-        <section className="min-h-0 flex-1 overflow-y-auto px-4 pb-28 pt-4">
-          {loading ? <LoadingSkeleton /> : null}
-
-          {!loading && error ? (
-            <ErrorState message={error} onRetry={() => setError(null)} />
-          ) : null}
-
-          {!loading && !error && filteredCases.length === 0 ? (
-            debouncedSearch || isFilterActive(filters) ? (
-              <EmptySearchState
-                onReset={() => {
-                  setSearchInput("");
-                  setFilters(emptyFilters);
-                }}
-              />
-            ) : (
-              <EmptyState onCreate={() => setSheet("new-case")} />
-            )
-          ) : null}
-
-          {!loading && !error && filteredCases.length > 0 ? (
-            <>
-              <div className="mb-3 flex items-center justify-between">
-                <p className="text-[13px] font-semibold text-[#334155]">
-                  {filteredCases.length} ca tư vấn
-                </p>
-                <p className="text-[12px] font-medium text-[#64748b]">
-                  Ca khẩn luôn ở đầu
-                </p>
+        {activeTab === "cases" ? (
+          <div className="px-3 pt-3">
+            <div className="mb-2 rounded-2xl border border-[#cfe8d8] bg-gradient-to-br from-white to-[#f0fbf4] p-2.5 shadow-[0_4px_16px_rgba(22,163,74,0.03)] relative overflow-hidden">
+              <div className="absolute right-0 top-0 h-10 w-10 bg-[#16a34a]/3 rounded-full blur-xl"></div>
+              
+              <div className="flex items-center justify-between">
+                <span className="text-[10.5px] font-extrabold uppercase tracking-wider text-[#16a34a] bg-[#ecfdf3] px-2 py-0.5 rounded-md border border-emerald-100 flex items-center gap-1">
+                  <Activity className="h-3 w-3 animate-pulse" />
+                  Sức khỏe của bạn
+                </span>
+                <span className="text-[9.5px] font-bold text-slate-400">Thời gian thực</span>
               </div>
 
-              <div className="space-y-3">
-                {filteredCases.map((caseItem) => (
-                  <CaseCard
-                    key={caseItem.id}
-                    caseItem={caseItem}
-                    onPress={openCase}
-                    onLongPress={openActions}
-                    onDelete={deleteCase}
-                    onArchive={archiveCase}
-                    onBook={() => router.push("/patient/appointments")}
-                    onContactDoctor={() =>
-                      router.push("/patient/consult/new?mode=doctor")
-                    }
-                    pinned={pinnedCaseIds.includes(caseItem.id)}
+              <div className="mt-2 grid grid-cols-3 gap-1.5">
+                <div className="bg-red-50/50 border border-red-100 rounded-xl p-1.5 text-center transition-all hover:bg-red-50">
+                  <p className="text-[9px] font-bold text-red-500 uppercase tracking-wide">Cần chú ý</p>
+                  <p className="text-base font-extrabold text-[#dc2626] mt-0.5">{summary.urgent}</p>
+                </div>
+                <div className="bg-amber-50/50 border border-amber-100 rounded-xl p-1.5 text-center transition-all hover:bg-amber-50">
+                  <p className="text-[9px] font-bold text-amber-600 uppercase tracking-wide">Theo dõi</p>
+                  <p className="text-base font-extrabold text-[#b45309] mt-0.5">{summary.monitoring}</p>
+                </div>
+                <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-1.5 text-center transition-all hover:bg-emerald-50">
+                  <p className="text-[9px] font-bold text-emerald-600 uppercase tracking-wide font-sans">Ổn định</p>
+                  <p className="text-base font-extrabold text-[#065f46] mt-0.5">{summary.stable}</p>
+                </div>
+              </div>
+            </div>
+
+            <PrimaryCTAButton onClick={() => setSheet("new-case")} />
+          </div>
+        ) : null}
+
+        <section className="min-h-0 flex-1 overflow-y-auto px-3 pb-28 pt-2">
+          {activeTab === "cases" ? (
+            <>
+              {loading ? <LoadingSkeleton /> : null}
+
+              {!loading && error ? (
+                <ErrorState message={error} onRetry={() => setError(null)} />
+              ) : null}
+
+              {!loading && !error && filteredCases.length === 0 ? (
+                debouncedSearch || isFilterActive(filters) ? (
+                  <EmptySearchState
+                    onReset={() => {
+                      setSearchInput("");
+                      setFilters(emptyFilters);
+                    }}
+                  />
+                ) : (
+                  <EmptyState onCreate={() => setSheet("new-case")} />
+                )
+              ) : null}
+
+              {!loading && !error && filteredCases.length > 0 ? (
+                <>
+                  <div className="mb-3 flex items-center justify-between">
+                    <p className="text-[13px] font-semibold text-[#334155]">
+                      {filteredCases.length} ca tư vấn
+                    </p>
+                    <p className="text-[12px] font-medium text-[#64748b]">
+                      Ca khẩn luôn ở đầu
+                    </p>
+                  </div>
+
+                  <div className="space-y-3">
+                    {filteredCases.map((caseItem) => (
+                      <CaseCard
+                        key={caseItem.id}
+                        caseItem={caseItem}
+                        onPress={openCase}
+                        onLongPress={openActions}
+                        onDelete={deleteCase}
+                        onArchive={archiveCase}
+                        onBook={() => router.push("/patient/appointments")}
+                        onContactDoctor={() =>
+                          router.push(`/patient/consult/doctor-${Date.now()}?mode=doctor`)
+                        }
+                        pinned={pinnedCaseIds.includes(caseItem.id)}
+                      />
+                    ))}
+                  </div>
+                </>
+              ) : null}
+            </>
+          ) : (
+            // ── Doctor tab ──────────────────────────────────────────────────────
+            <>
+              <DoctorSectionTitle icon={MessageCircle} title="Tư vấn online với bác sĩ" />
+              <div className="mt-3 grid gap-3">
+                <OnlineConsultHero />
+                <div className="grid grid-cols-3 gap-2">
+                  <DoctorQuickAction
+                    icon={MessageCircle}
+                    label="Chat với bác sĩ"
+                    onClick={() => openOnlineConsult("Chat")}
+                  />
+                  <DoctorQuickAction
+                    icon={Video}
+                    label="Video call"
+                    onClick={() => openOnlineConsult("Video call")}
+                  />
+                  <DoctorQuickAction
+                    icon={CalendarDays}
+                    label="Đặt lịch khám"
+                    onClick={() => router.push("/patient/appointments")}
+                  />
+                </div>
+              </div>
+
+              <DoctorSectionTitle icon={Stethoscope} title="Chọn bác sĩ" className="mt-7" />
+              <div className="-mx-4 mt-3 flex gap-3 overflow-x-auto px-4 pb-1">
+                {doctorsList.slice(0, 4).map((doctor) => (
+                  <DoctorMiniCard
+                    key={doctor.id}
+                    doctor={doctor}
+                    onAction={startInteractiveCall}
+                  />
+                ))}
+              </div>
+              <button
+                type="button"
+                onClick={openDoctorDirectory}
+                className="mt-3 min-h-11 w-full rounded-2xl border border-[#d8e7ef] bg-white text-sm font-bold text-[#334155]"
+              >
+                Tìm bác sĩ
+              </button>
+
+              <DoctorSectionTitle icon={MessageCircle} title="Bác sĩ đã từng tư vấn" className="mt-7" />
+              <div className="mt-3 grid gap-3">
+                {myDoctors.map((doctor) => (
+                  <MyDoctorCard
+                    key={doctor.id}
+                    doctor={doctor}
+                    onAction={startInteractiveCall}
+                  />
+                ))}
+              </div>
+
+              <DoctorSectionTitle icon={MessageCircle} title="Tư vấn online gần đây" className="mt-7" />
+              <div className="mt-3 grid gap-3">
+                {onlineConsults.map((item) => (
+                  <OnlineConsultRecord
+                    key={item.id}
+                    consult={item}
+                    onClick={() => {
+                      const doctor = doctorsList.find((d) => d.name === item.doctorName) ?? doctorsList[0];
+                      startInteractiveCall(doctor, item.type);
+                    }}
                   />
                 ))}
               </div>
             </>
-          ) : null}
+          )}
         </section>
         {/* Floating emergency FAB inside the rounded panel (mobile-friendly) */}
-        <EmergencyFAB
-          highlighted={false}
-          onClick={() => setSheet("emergency")}
-        />
-      </div>
+        {activeTab === "cases" ? (
+          <EmergencyFAB
+            highlighted={false}
+            onClick={() => setSheet("emergency")}
+          />
+        ) : null}
 
-      {sheet ? (
-        <BottomSheet onClose={() => setSheet(null)}>
-          {sheet === "filter" ? (
-            <FilterBottomSheet
-              filters={filters}
-              onApply={(nextFilters) => {
-                setFilters(nextFilters);
-                setSheet(null);
-              }}
-              onReset={() => {
-                setFilters(emptyFilters);
-                setSheet(null);
-              }}
-            />
-          ) : null}
+        {activeCall ? (
+          <InteractiveCallOverlay
+            call={activeCall}
+            messages={chatMessages}
+            callDuration={callDuration}
+            onClose={() => {
+              setActiveCall(null);
+              showToast("Cuộc tư vấn đã kết thúc");
+            }}
+            onSendMessage={handleSendMessage}
+          />
+        ) : null}
 
-          {sheet === "new-case" ? (
-            <NewCaseSheet
-              onCreate={createCase}
-              onEmergency={() => {
-                setSelectedCase(null);
-                setSheet("emergency");
-              }}
-            />
-          ) : null}
+        {sheet ? (
+          <BottomSheet onClose={() => setSheet(null)}>
+            {sheet === "filter" ? (
+              <FilterBottomSheet
+                filters={filters}
+                onApply={(nextFilters) => {
+                  setFilters(nextFilters);
+                  setSheet(null);
+                }}
+                onReset={() => {
+                  setFilters(emptyFilters);
+                  setSheet(null);
+                }}
+              />
+            ) : null}
 
-          {sheet === "case-actions" && selectedCase ? (
-            <CaseActionsSheet
-              caseItem={selectedCase}
-              onPin={() => pinCase(selectedCase.id)}
-              onExport={() => setSheet("export-report")}
-              onDelete={() => deleteCase(selectedCase.id)}
-            />
-          ) : null}
+            {sheet === "new-case" ? (
+              <NewCaseSheet
+                onCreate={createCase}
+                onEmergency={() => {
+                  setSelectedCase(null);
+                  setSheet("emergency");
+                }}
+              />
+            ) : null}
 
-          {sheet === "export-report" && selectedCase ? (
-            <ExportReportSheet
-              caseItem={selectedCase}
-              onExport={(format) => {
-                setSheet(null);
-                showToast(`Đã xuất báo cáo ${format.toUpperCase()} thành công`);
-              }}
-            />
-          ) : null}
+            {sheet === "case-actions" && selectedCase ? (
+              <CaseActionsSheet
+                caseItem={selectedCase}
+                onPin={() => pinCase(selectedCase.id)}
+                onExport={() => setSheet("export-report")}
+                onDelete={() => deleteCase(selectedCase.id)}
+              />
+            ) : null}
 
-          {sheet === "case-details" && selectedCase ? (
-            <CaseDetailsSheet
-              caseItem={selectedCase}
-              onOpenChat={() => openChat(selectedCase)}
-            />
-          ) : null}
+            {sheet === "export-report" && selectedCase ? (
+              <ExportReportSheet
+                caseItem={selectedCase}
+                onExport={(format) => {
+                  setSheet(null);
+                  showToast(`Đã xuất báo cáo ${format.toUpperCase()} thành công`);
+                }}
+              />
+            ) : null}
 
-          {sheet === "emergency" ? (
-            <EmergencySheet
-              caseItem={selectedCase}
-              onUrgentAi={() => createCase("emergency", "Hỗ trợ khẩn")}
-              onConnectDoctor={() =>
-                router.push("/patient/consult/new?mode=doctor&emergency=1")
-              }
-              onCall={() => {
-                window.location.href = "tel:115";
-              }}
-              onOpenChat={() => {
-                if (selectedCase) {
-                  openChat(selectedCase);
+            {sheet === "case-details" && selectedCase ? (
+              <CaseDetailsSheet
+                caseItem={selectedCase}
+                onOpenChat={() => openChat(selectedCase)}
+              />
+            ) : null}
+
+            {sheet === "emergency" ? (
+              <EmergencySheet
+                caseItem={selectedCase}
+                onUrgentAi={() => createCase("emergency", "Hỗ trợ khẩn")}
+                onConnectDoctor={() =>
+                  router.push(`/patient/consult/doctor-${Date.now()}?mode=doctor&emergency=1`)
                 }
-              }}
-            />
-          ) : null}
-        </BottomSheet>
-      ) : null}
+                onCall={() => {
+                  window.location.href = "tel:115";
+                }}
+                onOpenChat={() => {
+                  if (selectedCase) {
+                    openChat(selectedCase);
+                  }
+                }}
+              />
+            ) : null}
 
-      {toast ? (
-        <div className="fixed left-1/2 top-4 z-50 -translate-x-1/2 rounded-full bg-[#10233f] px-4 py-2 text-[13px] font-semibold text-white shadow-lg">
-          {toast}
-        </div>
-      ) : null}
+            {sheet === "online-consult" ? (
+              <OnlineConsultSheet
+                selectedType={onlineType}
+                onSelectType={setOnlineType}
+                onContinue={() => setSheet("doctor-match")}
+              />
+            ) : null}
+
+            {sheet === "doctor-match" ? (
+              <DoctorMatchSheet
+                doctor={selectedDoctor ?? doctorsList[0]}
+                type={onlineType}
+                onConnect={connectDoctor}
+              />
+            ) : null}
+
+            {sheet === "doctor-directory" ? (
+              <DoctorDirectorySheet
+                doctors={filteredDoctors}
+                filter={doctorFilter}
+                onFilterChange={setDoctorFilter}
+                consultType={onlineType}
+                onAction={startInteractiveCall}
+              />
+            ) : null}
+          </BottomSheet>
+        ) : null}
+
+        {toast ? (
+          <div className="absolute left-1/2 top-4 z-50 -translate-x-1/2 rounded-full bg-[#10233f] px-4 py-2 text-[13px] font-semibold text-white shadow-lg">
+            {toast}
+          </div>
+        ) : null}
+      </div>
     </main>
   );
 }
 
 function Header({
-  searchOpen,
-  searchInput,
-  filtersActive,
-  onSearchOpen,
-  onSearchClose,
-  onSearchChange,
-  onFilterOpen,
+  activeTab,
+  onTabChange,
 }: {
-  searchOpen: boolean;
-  searchInput: string;
-  filtersActive: boolean;
-  onSearchOpen: () => void;
-  onSearchClose: () => void;
-  onSearchChange: (value: string) => void;
-  onFilterOpen: () => void;
+  activeTab: ConsultTab;
+  onTabChange: (tab: ConsultTab) => void;
 }) {
   return (
     <header className="border-b border-[#e3edf3] bg-white px-4 pb-4 pt-4">
-      {searchOpen ? (
-        <SearchBar
-          value={searchInput}
-          onChange={onSearchChange}
-          onClose={onSearchClose}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-[25px] font-bold leading-tight text-[#10233f]">
+            Tư vấn của tôi
+          </h1>
+          <p className="mt-1 text-[14px] leading-5 text-[#64748b]">
+            Quản lý các vấn đề sức khỏe theo từng ca bệnh
+          </p>
+        </div>
+      </div>
+      <div className="mt-4 grid grid-cols-2 rounded-2xl bg-[#f1f5f9] p-1">
+        <ConsultTabButton
+          active={activeTab === "cases"}
+          label="Ca tư vấn"
+          onClick={() => onTabChange("cases")}
         />
-      ) : (
+        <ConsultTabButton
+          active={activeTab === "doctor"}
+          label="Bác sĩ tư vấn"
+          onClick={() => onTabChange("doctor")}
+        />
+      </div>
+    </header>
+  );
+}
+
+function ConsultTabButton({
+  active,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`min-h-10 rounded-xl text-sm font-bold transition ${
+        active
+          ? "bg-white text-[#10233f] shadow-[0_6px_18px_rgba(15,23,42,0.08)]"
+          : "text-[#64748b]"
+      }`}
+    >
+      {label}
+    </button>
+  );
+}
+
+function DoctorSectionTitle({
+  icon: Icon,
+  title,
+  className = "",
+}: {
+  icon: ComponentType<{ className?: string }>;
+  title: string;
+  className?: string;
+}) {
+  return (
+    <div className={`flex items-center gap-2 ${className}`}>
+      <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#ecfdf3] text-[#16a34a]">
+        <Icon className="h-4.5 w-4.5" />
+      </span>
+      <h2 className="text-[18px] font-bold text-[#10233f]">{title}</h2>
+    </div>
+  );
+}
+
+function OnlineConsultHero() {
+  return (
+    <article className="rounded-[24px] border border-[#bbf7d0] bg-[#ecfdf3] p-4 shadow-[0_12px_28px_rgba(22,163,74,0.08)]">
+      <div className="flex items-start gap-3">
+        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white text-[#16a34a]">
+          <MessageCircle className="h-5 w-5" />
+        </span>
+        <div className="min-w-0">
+          <h3 className="text-[17px] font-bold text-[#10233f]">Tư vấn trực tuyến</h3>
+          <p className="mt-1 text-[14px] leading-6 text-[#475569]">
+            Trao đổi qua chat hoặc video với bác sĩ phù hợp.
+          </p>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function DoctorQuickAction({
+  icon: Icon,
+  label,
+  onClick,
+}: {
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-[22px] border border-[#d8e7ef] bg-white px-2 text-center text-[12px] font-bold leading-4 text-[#334155] shadow-[0_10px_24px_rgba(15,23,42,0.05)]"
+    >
+      <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-[#ecfdf3] text-[#16a34a]">
+        <Icon className="h-4.5 w-4.5" />
+      </span>
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function DoctorMiniCard({
+  doctor,
+  onAction,
+}: {
+  doctor: Doctor;
+  onAction: (doctor: Doctor, type: OnlineConsultType) => void;
+}) {
+  return (
+    <article className="w-45 shrink-0 rounded-[24px] border border-[#d8e7ef] bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+      <h3 className="text-[15px] font-bold leading-5 text-[#10233f] truncate">{doctor.name}</h3>
+      <p className="mt-1 text-[13px] text-[#64748b]">{doctor.specialty}</p>
+      <div className="mt-3 flex items-center justify-between text-[12px] font-bold">
+        <span className="text-[#b45309]">⭐ {doctor.rating}</span>
+        <span className="rounded-full bg-[#ecfdf3] px-2 py-1 text-[#16a34a] text-[10px]">
+          {doctor.availability}
+        </span>
+      </div>
+      <div className="mt-3 grid grid-cols-3 gap-1.5">
+        <button
+          type="button"
+          onClick={() => onAction(doctor, "Chat")}
+          title="Chat"
+          className="flex h-9 items-center justify-center rounded-xl bg-[#ecfdf3] text-[#16a34a] transition hover:bg-emerald-100 cursor-pointer"
+        >
+          <MessageCircle className="h-4.5 w-4.5" />
+        </button>
+        <button
+          type="button"
+          onClick={() => onAction(doctor, "Gọi thoại")}
+          title="Gọi thoại"
+          className="flex h-9 items-center justify-center rounded-xl bg-[#eff6ff] text-[#2563eb] transition hover:bg-blue-100 cursor-pointer"
+        >
+          <PhoneCall className="h-4.5 w-4.5" />
+        </button>
+        <button
+          type="button"
+          onClick={() => onAction(doctor, "Video call")}
+          title="Video call"
+          className="flex h-9 items-center justify-center rounded-xl bg-[#f5f3ff] text-[#7c3aed] transition hover:bg-purple-100 cursor-pointer"
+        >
+          <Video className="h-4.5 w-4.5" />
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function MyDoctorCard({
+  doctor,
+  onAction,
+}: {
+  doctor: Doctor;
+  onAction: (doctor: Doctor, type: OnlineConsultType) => void;
+}) {
+  return (
+    <article className="rounded-[24px] border border-[#d8e7ef] bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-[16px] font-bold text-[#10233f]">{doctor.name}</h3>
+          <p className="mt-1 text-[14px] text-[#64748b]">
+            {doctor.specialty} · Lần cuối: {doctor.lastConsult}
+          </p>
+        </div>
+        <span className="rounded-full bg-[#ecfdf3] px-3 py-1 text-[12px] font-bold text-[#16a34a]">
+          {doctor.availability}
+        </span>
+      </div>
+      <div className="mt-3 grid grid-cols-3 gap-2">
+        <button
+          type="button"
+          onClick={() => onAction(doctor, "Chat")}
+          className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-[#ecfdf3] text-[#16a34a] text-xs font-bold transition hover:bg-emerald-100 cursor-pointer"
+        >
+          <MessageCircle className="h-4 w-4" />
+          Chat
+        </button>
+        <button
+          type="button"
+          onClick={() => onAction(doctor, "Gọi thoại")}
+          className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-[#eff6ff] text-[#2563eb] text-xs font-bold transition hover:bg-blue-100 cursor-pointer"
+        >
+          <PhoneCall className="h-4 w-4" />
+          Gọi thoại
+        </button>
+        <button
+          type="button"
+          onClick={() => onAction(doctor, "Video call")}
+          className="flex min-h-10 items-center justify-center gap-1.5 rounded-xl bg-[#f5f3ff] text-[#7c3aed] text-xs font-bold transition hover:bg-purple-100 cursor-pointer"
+        >
+          <Video className="h-4 w-4" />
+          Video
+        </button>
+      </div>
+    </article>
+  );
+}
+
+function OnlineConsultRecord({
+  consult,
+  onClick,
+}: {
+  consult: OnlineConsult;
+  onClick: () => void;
+}) {
+  return (
+    <article
+      onClick={onClick}
+      className="rounded-[24px] border border-[#d8e7ef] bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)] cursor-pointer hover:border-emerald-200 transition-all"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-[16px] font-bold text-[#10233f]">{consult.doctorName}</h3>
+          <p className="mt-1 text-[14px] text-[#64748b]">
+            {consult.specialty} · {consult.type} · {consult.date}
+          </p>
+        </div>
+        <span
+          className={`rounded-full px-3 py-1 text-[12px] font-bold ${
+            consult.status === "Đang kết nối"
+              ? "bg-[#eff6ff] text-[#2563eb]"
+              : "bg-[#f1f5f9] text-[#475569]"
+          }`}
+        >
+          {consult.status}
+        </span>
+      </div>
+    </article>
+  );
+}
+
+function OnlineConsultSheet({
+  selectedType,
+  onSelectType,
+  onContinue,
+}: {
+  selectedType: OnlineConsultType;
+  onSelectType: (type: OnlineConsultType) => void;
+  onContinue: () => void;
+}) {
+  return (
+    <div className="pr-9">
+      <SheetTitle
+        eyebrow="Tư vấn online"
+        title="Bạn muốn trao đổi với bác sĩ bằng cách nào?"
+      />
+      <div className="mt-4 grid gap-2">
+        {onlineConsultOptions.map((item) => (
+          <button
+            key={item.type}
+            type="button"
+            onClick={() => onSelectType(item.type)}
+            className={`rounded-2xl border px-3 py-3 text-left ${
+              selectedType === item.type
+                ? "border-[#bbf7d0] bg-[#ecfdf3]"
+                : "border-[#d8e7ef] bg-white"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-bold text-[#10233f]">{item.type}</p>
+                <p className="mt-1 text-[13px] text-[#64748b]">{item.description}</p>
+              </div>
+              <span className="rounded-full bg-[#f8fbfd] px-3 py-1 text-[12px] font-bold text-[#16a34a]">
+                {item.responseTime}
+              </span>
+            </div>
+          </button>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={onContinue}
+        className="mt-4 min-h-12 w-full rounded-2xl bg-[#16a34a] text-sm font-bold text-white"
+      >
+        Tiếp tục
+      </button>
+    </div>
+  );
+}
+
+function DoctorMatchSheet({
+  doctor,
+  type,
+  onConnect,
+}: {
+  doctor: Doctor;
+  type: OnlineConsultType;
+  onConnect: () => void;
+}) {
+  return (
+    <div className="pr-9">
+      <SheetTitle eyebrow="Bác sĩ phù hợp" title={`Kết nối ${doctor.name}`} />
+      <div className="mt-4 rounded-[24px] border border-[#d8e7ef] bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]">
         <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="text-[25px] font-bold leading-tight text-[#10233f]">
-              Tư vấn của tôi
-            </h1>
-            <p className="mt-1 text-[14px] leading-5 text-[#64748b]">
-              Quản lý các vấn đề sức khỏe theo từng ca bệnh
+          <div>
+            <h3 className="text-[17px] font-bold text-[#10233f]">{doctor.name}</h3>
+            <p className="mt-1 text-[14px] text-[#64748b]">
+              {doctor.specialty} · ⭐ {doctor.rating}
             </p>
           </div>
-
-          <div className="flex shrink-0 gap-2">
-            <IconButton label="Tìm kiếm" icon={Search} onClick={onSearchOpen} />
-            <IconButton
-              label="Bộ lọc"
-              icon={Filter}
-              onClick={onFilterOpen}
-              active={filtersActive}
-            />
-          </div>
+          <span className="rounded-full bg-[#ecfdf3] px-3 py-1 text-[12px] font-bold text-[#16a34a]">
+            {doctor.availability}
+          </span>
         </div>
-      )}
-    </header>
+        <div className="mt-3 rounded-2xl bg-[#f8fbfd] px-3 py-3 text-[13px] leading-5 text-[#475569]">
+          AI đã dùng dữ liệu từ consultation hoặc lựa chọn của bạn để chuẩn bị
+          kết nối. Hình thức tư vấn: {type}.
+        </div>
+        <button
+          type="button"
+          onClick={onConnect}
+          className="mt-4 min-h-12 w-full rounded-2xl bg-[#16a34a] text-sm font-bold text-white"
+        >
+          Bắt đầu kết nối
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DoctorDirectorySheet({
+  doctors,
+  filter,
+  onFilterChange,
+  consultType,
+  onAction,
+}: {
+  doctors: Doctor[];
+  filter: string;
+  onFilterChange: (filter: string) => void;
+  consultType?: OnlineConsultType;
+  onAction: (doctor: Doctor, type: OnlineConsultType) => void;
+}) {
+  return (
+    <div className="pr-9">
+      <SheetTitle eyebrow="Tìm bác sĩ" title="Chọn bác sĩ để tư vấn" />
+      <div className="-mx-1 mt-4 flex gap-2 overflow-x-auto px-1 pb-1">
+        {doctorSpecialties.map((item) => (
+          <button
+            key={item}
+            type="button"
+            onClick={() => onFilterChange(item)}
+            className={`min-h-9 shrink-0 rounded-full px-3 text-[12px] font-bold ${
+              filter === item
+                ? "bg-[#16a34a] text-white"
+                : "border border-[#d8e7ef] bg-white text-[#334155]"
+            }`}
+          >
+            {item}
+          </button>
+        ))}
+      </div>
+      <div className="mt-4 grid gap-3">
+        {doctors.map((doctor) => (
+          <article
+            key={doctor.id}
+            className="rounded-[24px] border border-[#d8e7ef] bg-white p-4 shadow-[0_10px_24px_rgba(15,23,42,0.05)]"
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-[16px] font-bold text-[#10233f]">{doctor.name}</h3>
+                <p className="mt-1 text-[14px] text-[#64748b]">
+                  {doctor.specialty} · ⭐ {doctor.rating}
+                </p>
+                <p className="mt-1 text-[13px] text-[#94a3b8]">{doctor.consults}</p>
+              </div>
+              <span className="rounded-full bg-[#ecfdf3] px-3 py-1 text-[12px] font-bold text-[#16a34a]">
+                {doctor.availability}
+              </span>
+            </div>
+            {consultType === "Chat" ? (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => onAction(doctor, "Chat")}
+                  className="w-full min-h-11 rounded-xl bg-[#16a34a] hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition active:scale-[0.98]"
+                >
+                  <MessageCircle className="h-4.5 w-4.5" /> Bắt đầu Chat ngay
+                </button>
+              </div>
+            ) : consultType === "Video call" ? (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => onAction(doctor, "Video call")}
+                  className="w-full min-h-11 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition active:scale-[0.98]"
+                >
+                  <Video className="h-4.5 w-4.5" /> Bắt đầu Video call
+                </button>
+              </div>
+            ) : (
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => onAction(doctor, "Chat")}
+                  className="min-h-10 rounded-xl bg-[#ecfdf3] text-[#16a34a] text-xs font-bold flex items-center justify-center gap-1 cursor-pointer hover:bg-emerald-100"
+                >
+                  <MessageCircle className="h-4 w-4" /> Chat
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onAction(doctor, "Gọi thoại")}
+                  className="min-h-10 rounded-xl bg-[#eff6ff] text-[#2563eb] text-xs font-bold flex items-center justify-center gap-1 cursor-pointer hover:bg-blue-100"
+                >
+                  <PhoneCall className="h-4 w-4" /> Gọi thoại
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onAction(doctor, "Video call")}
+                  className="min-h-10 rounded-xl bg-[#f5f3ff] text-[#7c3aed] text-xs font-bold flex items-center justify-center gap-1 cursor-pointer hover:bg-purple-100"
+                >
+                  <Video className="h-4 w-4" /> Video
+                </button>
+              </div>
+            )}
+          </article>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -637,22 +1374,22 @@ function PrimaryCTAButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="flex min-h-14 w-full items-center justify-between rounded-[22px] bg-[#16a34a] px-4 py-4 text-left text-white shadow-[0_18px_32px_rgba(22,163,74,0.22)] transition hover:-translate-y-0.5 active:scale-[0.99]"
+      className="flex items-center justify-between rounded-xl bg-[#16a34a] px-3.5 py-2 text-left text-white shadow-[0_4px_12px_rgba(22,163,74,0.12)] transition hover:-translate-y-0.5 active:scale-[0.99] cursor-pointer w-full"
     >
-      <span className="flex min-w-0 items-center gap-3">
-        <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/15">
-          <Plus className="h-5 w-5" />
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/15">
+          <Plus className="h-4 w-4 text-white" />
         </span>
         <span className="min-w-0">
-          <span className="block text-[16px] font-semibold">
+          <span className="block text-[13px] font-bold">
             Bắt đầu tư vấn mới
           </span>
-          <span className="mt-0.5 block text-[12px] text-white/80">
+          <span className="block text-[10px] text-white/85 leading-none mt-0.5">
             Chọn AI, bác sĩ hoặc chế độ khẩn
           </span>
         </span>
       </span>
-      <ChevronRight className="h-5 w-5 shrink-0 text-white/90" />
+      <ChevronRight className="h-4 w-4 shrink-0 text-white/80" />
     </button>
   );
 }
@@ -1482,14 +2219,14 @@ function BottomSheet({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center px-3 pb-3">
+    <div className="absolute inset-0 z-50 flex items-end justify-center px-3 pb-3">
       <button
         type="button"
         aria-label="Đóng"
         className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative max-h-[88vh] w-full max-w-md overflow-y-auto rounded-[28px] bg-white p-4 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
+      <div className="relative max-h-[88vh] w-full overflow-y-auto rounded-[28px] bg-white p-4 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
         <button
           type="button"
           aria-label="Đóng"
@@ -1678,6 +2415,255 @@ function ErrorState({
       >
         Thử lại
       </button>
+    </div>
+  );
+}
+
+const formatDuration = (sec: number) => {
+  const m = Math.floor(sec / 60).toString().padStart(2, "0");
+  const s = (sec % 60).toString().padStart(2, "0");
+  return `${m}:${s}`;
+};
+
+function InteractiveCallOverlay({
+  call,
+  messages,
+  callDuration,
+  onClose,
+  onSendMessage,
+}: {
+  call: { doctor: Doctor; type: OnlineConsultType };
+  messages: Array<{ sender: "user" | "doctor"; text: string; time: string }>;
+  callDuration: number;
+  onClose: () => void;
+  onSendMessage: (text: string) => void;
+}) {
+  const [inputText, setInputText] = useState("");
+  const [isMuted, setIsMuted] = useState(false);
+  const [isSpeakerOn, setIsSpeakerOn] = useState(false);
+  const [isVideoOff, setIsVideoOff] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
+
+  const handleSend = (e: any) => {
+    e.preventDefault();
+    if (!inputText.trim()) return;
+    onSendMessage(inputText);
+    setInputText("");
+  };
+
+  if (call.type === "Chat") {
+    return (
+      <div className="absolute inset-0 z-50 flex flex-col bg-[#edf6fb]">
+        {/* Chat Header */}
+        <div className="flex items-center gap-3 border-b border-[#e3edf3] bg-white px-4 py-3 shadow-sm">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-[#475569] transition hover:bg-slate-200"
+          >
+            <ChevronRight className="h-5 w-5 rotate-180" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-base font-bold text-[#10233f] truncate">{call.doctor.name}</h3>
+            <p className="text-xs text-[#16a34a] flex items-center gap-1">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#16a34a] animate-pulse"></span>
+              {call.doctor.specialty} · Đang hoạt động
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-[#eff6ff] text-[#2563eb]"
+              title="Gọi thoại"
+              onClick={() => {
+                call.type = "Gọi thoại";
+              }}
+            >
+              <PhoneCall className="h-4.5 w-4.5" />
+            </button>
+          </div>
+        </div>
+
+        {/* Chat Messages */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
+          <div className="mx-auto max-w-sm rounded-xl bg-amber-50 border border-amber-100 p-2.5 text-center text-xs text-[#b45309]">
+            ⚠️ Đây là phòng tư vấn mô phỏng. Bác sĩ sẽ tự động phản hồi lại tin nhắn của bạn sau vài giây.
+          </div>
+
+          {messages.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-48 text-center text-slate-400">
+              <MessageCircle className="h-10 w-10 text-slate-300 mb-2" />
+              <p className="text-xs">Bắt đầu cuộc trò chuyện với {call.doctor.name}</p>
+            </div>
+          ) : (
+            messages.map((msg, index) => (
+              <div
+                key={index}
+                className={`flex flex-col ${msg.sender === "user" ? "items-end" : "items-start"}`}
+              >
+                <div
+                  className={`max-w-[75%] rounded-2xl px-3.5 py-2 text-sm shadow-[0_2px_8px_rgba(0,0,0,0.02)] ${
+                    msg.sender === "user"
+                      ? "bg-[#16a34a] text-white rounded-tr-none"
+                      : "bg-white text-[#1e293b] rounded-tl-none border border-[#e2e8f0]"
+                  }`}
+                >
+                  <p className="leading-5">{msg.text}</p>
+                </div>
+                <span className="text-[10px] text-slate-400 mt-1 px-1">{msg.time}</span>
+              </div>
+            ))
+          )}
+          <div ref={chatEndRef} />
+        </div>
+
+        {/* Chat Input */}
+        <form onSubmit={handleSend} className="border-t border-[#e3edf3] bg-white p-3 flex gap-2">
+          <input
+            type="text"
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            placeholder="Nhập tin nhắn..."
+            className="flex-1 rounded-xl border border-[#d8e7ef] bg-[#f8fbfd] px-3.5 py-2 text-sm text-[#10233f] outline-none focus:border-[#16a34a] focus:bg-white"
+          />
+          <button
+            type="submit"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#16a34a] text-white hover:opacity-90 active:scale-95 transition"
+          >
+            <Plus className="h-5 w-5 rotate-45" />
+          </button>
+        </form>
+      </div>
+    );
+  }
+
+  return (
+    <div className="absolute inset-0 z-50 flex flex-col bg-slate-900 text-white select-none">
+      {/* Call Header */}
+      <div className="flex items-center justify-between p-4 bg-gradient-to-b from-black/40 to-transparent">
+        <div className="flex items-center gap-2">
+          <span className="h-2 w-2 rounded-full bg-[#16a34a] animate-pulse"></span>
+          <span className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
+            Tư vấn trực tiếp
+          </span>
+        </div>
+        <span className="text-sm font-mono font-medium tracking-widest bg-white/10 px-2.5 py-1 rounded-full backdrop-blur-md">
+          {formatDuration(callDuration)}
+        </span>
+      </div>
+
+      {/* Main View Area */}
+      <div className="flex-1 flex flex-col items-center justify-center relative p-6">
+        {call.type === "Video call" && !isVideoOff ? (
+          <div className="absolute inset-0 w-full h-full bg-slate-950 overflow-hidden flex items-center justify-center">
+            <div className="absolute inset-0 opacity-20 bg-[radial-gradient(#16a34a_1px,transparent_1px)] [background-size:16px_16px]"></div>
+            
+            <div className="text-center z-10 space-y-4">
+              <div className="relative mx-auto h-24 w-24 rounded-full border-2 border-[#16a34a] bg-slate-800 flex items-center justify-center shadow-[0_0_30px_rgba(22,163,74,0.3)] animate-pulse">
+                <Stethoscope className="h-10 w-10 text-[#16a34a]" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold">{call.doctor.name}</h2>
+                <p className="text-xs text-slate-400 mt-1">{call.doctor.specialty}</p>
+              </div>
+              <div className="inline-flex items-center gap-1.5 bg-[#16a34a]/20 border border-[#16a34a]/30 px-3 py-1 rounded-full text-xs text-[#22c55e] font-semibold">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#22c55e] animate-ping"></span>
+                Đang truyền video HD
+              </div>
+            </div>
+
+            <div className="absolute bottom-4 right-4 h-32 w-24 rounded-xl border border-white/20 bg-slate-950/80 shadow-2xl backdrop-blur-md overflow-hidden flex flex-col items-center justify-center p-2 text-center">
+              <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center mb-1">
+                <Plus className="h-5 w-5 text-white/50" />
+              </div>
+              <p className="text-[10px] text-white/60 font-semibold leading-tight">Bạn</p>
+              <div className="absolute bottom-1 right-1 h-1.5 w-1.5 rounded-full bg-emerald-500"></div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center space-y-6">
+            <div className="relative mx-auto flex h-32 w-32 items-center justify-center">
+              <div className="absolute inset-0 rounded-full bg-blue-500/10 animate-ping"></div>
+              <div className="absolute inset-2 rounded-full bg-blue-500/20 animate-pulse"></div>
+              <div className="h-24 w-24 rounded-full bg-slate-800 border border-blue-500/30 flex items-center justify-center text-3xl font-extrabold text-blue-400 shadow-[0_0_40px_rgba(59,130,246,0.2)]">
+                {call.doctor.name.split(" ").pop()?.[0] ?? "D"}
+              </div>
+            </div>
+            <div>
+              <h2 className="text-xl font-bold">{call.doctor.name}</h2>
+              <p className="text-sm text-slate-400 mt-1">{call.doctor.specialty}</p>
+              <p className="text-xs text-blue-400/80 mt-3 tracking-wide">Cuộc gọi thoại ẩn danh</p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Call Control Bar */}
+      <div className="p-8 bg-gradient-to-t from-black/60 via-black/30 to-transparent flex items-center justify-center gap-6">
+        <button
+          type="button"
+          onClick={() => setIsMuted(!isMuted)}
+          className={`flex h-12 w-12 items-center justify-center rounded-full transition-all border ${
+            isMuted
+              ? "bg-red-500 border-red-400 text-white"
+              : "bg-white/10 border-white/15 text-white hover:bg-white/20"
+          }`}
+          title={isMuted ? "Bật micro" : "Tắt micro"}
+        >
+          {isMuted ? (
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-mic-off"><line x1="2" x2="22" y1="2" y2="22"/><path d="M18.89 13.23A7.5 7.5 0 0 0 5.03 11"/><path d="M9 9a3 3 0 0 0 5.12 2.12"/><path d="M19 10v1a7.93 7.93 0 0 1-1.39 4.43"/><path d="M22 10v1c0 5-4.07 9-9.14 9H12a9 9 0 0 1-4-.97"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+          ) : (
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-mic"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex h-14 w-14 items-center justify-center rounded-full bg-red-600 hover:bg-red-700 text-white transition-all transform hover:scale-105 active:scale-95 shadow-[0_0_24px_rgba(220,38,38,0.4)]"
+          title="Kết thúc cuộc gọi"
+        >
+          <PhoneCall className="h-6 w-6 rotate-[135deg]" />
+        </button>
+
+        {call.type === "Video call" ? (
+          <button
+            type="button"
+            onClick={() => setIsVideoOff(!isVideoOff)}
+            className={`flex h-12 w-12 items-center justify-center rounded-full transition-all border ${
+              isVideoOff
+                ? "bg-red-500 border-red-400 text-white"
+                : "bg-white/10 border-white/15 text-white hover:bg-white/20"
+            }`}
+            title={isVideoOff ? "Bật camera" : "Tắt camera"}
+          >
+            {isVideoOff ? (
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-video-off"><path d="M10.66 6H14a2 2 0 0 1 2 2v2.34"/><path d="m22 8-6 4 1.9 1.27"/><path d="M2 2l20 20"/><path d="M16 16a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h2"/><path d="m2 16 6-4 1.27.85"/></svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-video"><path d="m22 8-6 4 6 4V8Z"/><rect width="14" height="12" x="2" y="6" rx="2" ry="2"/></svg>
+            )}
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setIsSpeakerOn(!isSpeakerOn)}
+            className={`flex h-12 w-12 items-center justify-center rounded-full transition-all border ${
+              isSpeakerOn
+                ? "bg-blue-600 border-blue-500 text-white"
+                : "bg-white/10 border-white/15 text-white hover:bg-white/20"
+            }`}
+            title={isSpeakerOn ? "Tắt loa ngoài" : "Bật loa ngoài"}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-volume-2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+          </button>
+        )}
+      </div>
     </div>
   );
 }
