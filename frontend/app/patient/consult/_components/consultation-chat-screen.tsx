@@ -1122,7 +1122,6 @@ export default function ConsultationChatScreen({
             bác sĩ chuyên ngành.
           </div>
         ) : null}
-      </div>
 
       <input
         ref={fileInputRef}
@@ -1203,10 +1202,11 @@ export default function ConsultationChatScreen({
       ) : null}
 
       {toast ? (
-        <div className="fixed left-1/2 top-4 z-60 -translate-x-1/2 rounded-full bg-[#10233f] px-4 py-2 text-[13px] font-semibold text-white shadow-lg">
+        <div className="absolute left-1/2 top-4 z-60 -translate-x-1/2 rounded-full bg-[#10233f] px-4 py-2 text-[13px] font-semibold text-white shadow-lg">
           {toast}
         </div>
       ) : null}
+      </div>
 
       <style jsx global>{`
         @keyframes reply-slide {
@@ -1262,14 +1262,14 @@ function BottomSheet({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center px-3 pb-3">
+    <div className="absolute inset-0 z-50 flex items-end justify-center px-3 pb-3">
       <button
         type="button"
         aria-label="Đóng"
         className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-md rounded-[28px] bg-white p-4 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
+      <div className="relative w-full overflow-hidden rounded-[28px] bg-white p-4 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
         <button
           type="button"
           aria-label="Đóng"
@@ -1572,14 +1572,14 @@ function UploadDropzoneModal({
       : "Kéo thả ảnh, PDF hoặc hồ sơ y tế vào đây.";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+    <div className="absolute inset-0 z-55 flex items-center justify-center px-4">
       <button
         type="button"
         aria-label="Đóng upload"
         className="absolute inset-0 bg-slate-950/55 backdrop-blur-sm"
         onClick={onCancel}
       />
-      <div className="relative w-full max-w-sm rounded-[28px] bg-white p-5 shadow-[0_28px_80px_rgba(15,23,42,0.3)]">
+      <div className="relative w-full rounded-[28px] bg-white p-5 shadow-[0_28px_80px_rgba(15,23,42,0.3)]">
         <h2 className="mt-4 text-[18px] font-bold text-[#10233f]">
           {title}
         </h2>

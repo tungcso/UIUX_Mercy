@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -28,7 +28,7 @@ export default function PatientBottomNav() {
   return (
     <nav
       aria-label="Bottom Navigation"
-      className="fixed bottom-0 left-1/2 z-30 w-full max-w-97.5 -translate-x-1/2 border-t border-slate-200/80 bg-white/95 px-2 pb-[calc(0.55rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-12px_32px_rgba(15,23,42,0.08)] backdrop-blur-xl"
+      className="patient-bottom-nav fixed bottom-0 left-1/2 z-30 w-full max-w-97.5 -translate-x-1/2 border-t border-slate-200/80 bg-white/95 px-2 pb-[calc(0.55rem+env(safe-area-inset-bottom))] pt-2 shadow-[0_-12px_32px_rgba(15,23,42,0.08)] backdrop-blur-xl"
     >
       <ul className="grid grid-cols-4 gap-1 text-center">
         {navItems.map((item) => {
@@ -68,4 +68,3 @@ export default function PatientBottomNav() {
     </nav>
   );
 }
-

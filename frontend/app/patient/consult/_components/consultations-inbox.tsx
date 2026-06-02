@@ -444,7 +444,8 @@ export default function ConsultationsInbox() {
 
   const openOnlineConsult = (type: OnlineConsultType = "Chat") => {
     setOnlineType(type);
-    setSheet("online-consult");
+    setDoctorFilter("Tất cả");
+    setSheet("doctor-directory");
   };
 
   const openDoctorDirectory = () => {
@@ -700,11 +701,7 @@ export default function ConsultationsInbox() {
             <>
               <DoctorSectionTitle icon={MessageCircle} title="Tư vấn online với bác sĩ" />
               <div className="mt-3 grid gap-3">
-                <OnlineConsultHero
-                  onChat={() => openOnlineConsult("Chat")}
-                  onVideo={() => openOnlineConsult("Video call")}
-                  onChooseDoctor={openDoctorDirectory}
-                />
+                <OnlineConsultHero />
                 <div className="grid grid-cols-3 gap-2">
                   <DoctorQuickAction
                     icon={MessageCircle}
@@ -776,123 +773,124 @@ export default function ConsultationsInbox() {
             onClick={() => setSheet("emergency")}
           />
         ) : null}
-      </div>
 
-      {sheet ? (
-        <BottomSheet onClose={() => setSheet(null)}>
-          {sheet === "filter" ? (
-            <FilterBottomSheet
-              filters={filters}
-              onApply={(nextFilters) => {
-                setFilters(nextFilters);
-                setSheet(null);
-              }}
-              onReset={() => {
-                setFilters(emptyFilters);
-                setSheet(null);
-              }}
-            />
-          ) : null}
+        {activeCall ? (
+          <InteractiveCallOverlay
+            call={activeCall}
+            messages={chatMessages}
+            callDuration={callDuration}
+            onClose={() => {
+              setActiveCall(null);
+              showToast("Cuộc tư vấn đã kết thúc");
+            }}
+            onSendMessage={handleSendMessage}
+          />
+        ) : null}
 
-          {sheet === "new-case" ? (
-            <NewCaseSheet
-              onCreate={createCase}
-              onEmergency={() => {
-                setSelectedCase(null);
-                setSheet("emergency");
-              }}
-            />
-          ) : null}
+        {sheet ? (
+          <BottomSheet onClose={() => setSheet(null)}>
+            {sheet === "filter" ? (
+              <FilterBottomSheet
+                filters={filters}
+                onApply={(nextFilters) => {
+                  setFilters(nextFilters);
+                  setSheet(null);
+                }}
+                onReset={() => {
+                  setFilters(emptyFilters);
+                  setSheet(null);
+                }}
+              />
+            ) : null}
 
-          {sheet === "case-actions" && selectedCase ? (
-            <CaseActionsSheet
-              caseItem={selectedCase}
-              onPin={() => pinCase(selectedCase.id)}
-              onExport={() => setSheet("export-report")}
-              onDelete={() => deleteCase(selectedCase.id)}
-            />
-          ) : null}
+            {sheet === "new-case" ? (
+              <NewCaseSheet
+                onCreate={createCase}
+                onEmergency={() => {
+                  setSelectedCase(null);
+                  setSheet("emergency");
+                }}
+              />
+            ) : null}
 
-          {sheet === "export-report" && selectedCase ? (
-            <ExportReportSheet
-              caseItem={selectedCase}
-              onExport={(format) => {
-                setSheet(null);
-                showToast(`Đã xuất báo cáo ${format.toUpperCase()} thành công`);
-              }}
-            />
-          ) : null}
+            {sheet === "case-actions" && selectedCase ? (
+              <CaseActionsSheet
+                caseItem={selectedCase}
+                onPin={() => pinCase(selectedCase.id)}
+                onExport={() => setSheet("export-report")}
+                onDelete={() => deleteCase(selectedCase.id)}
+              />
+            ) : null}
 
-          {sheet === "case-details" && selectedCase ? (
-            <CaseDetailsSheet
-              caseItem={selectedCase}
-              onOpenChat={() => openChat(selectedCase)}
-            />
-          ) : null}
+            {sheet === "export-report" && selectedCase ? (
+              <ExportReportSheet
+                caseItem={selectedCase}
+                onExport={(format) => {
+                  setSheet(null);
+                  showToast(`Đã xuất báo cáo ${format.toUpperCase()} thành công`);
+                }}
+              />
+            ) : null}
 
-          {sheet === "emergency" ? (
-            <EmergencySheet
-              caseItem={selectedCase}
-              onUrgentAi={() => createCase("emergency", "Hỗ trợ khẩn")}
-              onConnectDoctor={() =>
-                router.push(`/patient/consult/doctor-${Date.now()}?mode=doctor&emergency=1`)
-              }
-              onCall={() => {
-                window.location.href = "tel:115";
-              }}
-              onOpenChat={() => {
-                if (selectedCase) {
-                  openChat(selectedCase);
+            {sheet === "case-details" && selectedCase ? (
+              <CaseDetailsSheet
+                caseItem={selectedCase}
+                onOpenChat={() => openChat(selectedCase)}
+              />
+            ) : null}
+
+            {sheet === "emergency" ? (
+              <EmergencySheet
+                caseItem={selectedCase}
+                onUrgentAi={() => createCase("emergency", "Hỗ trợ khẩn")}
+                onConnectDoctor={() =>
+                  router.push(`/patient/consult/doctor-${Date.now()}?mode=doctor&emergency=1`)
                 }
-              }}
-            />
-          ) : null}
+                onCall={() => {
+                  window.location.href = "tel:115";
+                }}
+                onOpenChat={() => {
+                  if (selectedCase) {
+                    openChat(selectedCase);
+                  }
+                }}
+              />
+            ) : null}
 
-          {sheet === "online-consult" ? (
-            <OnlineConsultSheet
-              selectedType={onlineType}
-              onSelectType={setOnlineType}
-              onContinue={() => setSheet("doctor-match")}
-            />
-          ) : null}
+            {sheet === "online-consult" ? (
+              <OnlineConsultSheet
+                selectedType={onlineType}
+                onSelectType={setOnlineType}
+                onContinue={() => setSheet("doctor-match")}
+              />
+            ) : null}
 
-          {sheet === "doctor-match" ? (
-            <DoctorMatchSheet
-              doctor={selectedDoctor ?? doctorsList[0]}
-              type={onlineType}
-              onConnect={connectDoctor}
-            />
-          ) : null}
+            {sheet === "doctor-match" ? (
+              <DoctorMatchSheet
+                doctor={selectedDoctor ?? doctorsList[0]}
+                type={onlineType}
+                onConnect={connectDoctor}
+              />
+            ) : null}
 
-          {sheet === "doctor-directory" ? (
-            <DoctorDirectorySheet
-              doctors={filteredDoctors}
-              filter={doctorFilter}
-              onFilterChange={setDoctorFilter}
-              onAction={startInteractiveCall}
-            />
-          ) : null}
-        </BottomSheet>
-      ) : null}
+            {sheet === "doctor-directory" ? (
+              <DoctorDirectorySheet
+                doctors={filteredDoctors}
+                filter={doctorFilter}
+                onFilterChange={setDoctorFilter}
+                consultType={onlineType}
+                onAction={startInteractiveCall}
+              />
+            ) : null}
+          </BottomSheet>
+        ) : null}
 
-      {activeCall ? (
-        <InteractiveCallOverlay
-          call={activeCall}
-          messages={chatMessages}
-          callDuration={callDuration}
-          onClose={() => {
-            setActiveCall(null);
-            showToast("Cuộc tư vấn đã kết thúc");
-          }}
-          onSendMessage={handleSendMessage}
-        />
-      ) : null}
-
-      {toast ? (
-        <div className="fixed left-1/2 top-4 z-50 -translate-x-1/2 rounded-full bg-[#10233f] px-4 py-2 text-[13px] font-semibold text-white shadow-lg">
-          {toast}
-        </div>
-      ) : null}
+        {toast ? (
+          <div className="absolute left-1/2 top-4 z-50 -translate-x-1/2 rounded-full bg-[#10233f] px-4 py-2 text-[13px] font-semibold text-white shadow-lg">
+            {toast}
+          </div>
+        ) : null}
+      </div>
     </main>
   );
 }
@@ -975,15 +973,7 @@ function DoctorSectionTitle({
   );
 }
 
-function OnlineConsultHero({
-  onChat,
-  onVideo,
-  onChooseDoctor,
-}: {
-  onChat: () => void;
-  onVideo: () => void;
-  onChooseDoctor: () => void;
-}) {
+function OnlineConsultHero() {
   return (
     <article className="rounded-[24px] border border-[#bbf7d0] bg-[#ecfdf3] p-4 shadow-[0_12px_28px_rgba(22,163,74,0.08)]">
       <div className="flex items-start gap-3">
@@ -996,29 +986,6 @@ function OnlineConsultHero({
             Trao đổi qua chat hoặc video với bác sĩ phù hợp.
           </p>
         </div>
-      </div>
-      <div className="mt-4 grid grid-cols-3 gap-2">
-        <button
-          type="button"
-          onClick={onChat}
-          className="min-h-11 rounded-2xl bg-[#16a34a] px-2 text-xs font-bold text-white"
-        >
-          Chat với bác sĩ
-        </button>
-        <button
-          type="button"
-          onClick={onVideo}
-          className="min-h-11 rounded-2xl border border-[#bbf7d0] bg-white px-2 text-xs font-bold text-[#166534]"
-        >
-          Video call
-        </button>
-        <button
-          type="button"
-          onClick={onChooseDoctor}
-          className="min-h-11 rounded-2xl border border-[#bbf7d0] bg-white px-2 text-xs font-bold text-[#166534]"
-        >
-          Chọn bác sĩ
-        </button>
       </div>
     </article>
   );
@@ -1271,11 +1238,13 @@ function DoctorDirectorySheet({
   doctors,
   filter,
   onFilterChange,
+  consultType,
   onAction,
 }: {
   doctors: Doctor[];
   filter: string;
   onFilterChange: (filter: string) => void;
+  consultType?: OnlineConsultType;
   onAction: (doctor: Doctor, type: OnlineConsultType) => void;
 }) {
   return (
@@ -1315,29 +1284,51 @@ function DoctorDirectorySheet({
                 {doctor.availability}
               </span>
             </div>
-            <div className="mt-3 grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => onAction(doctor, "Chat")}
-                className="min-h-10 rounded-xl bg-[#ecfdf3] text-[#16a34a] text-xs font-bold flex items-center justify-center gap-1 cursor-pointer hover:bg-emerald-100"
-              >
-                <MessageCircle className="h-4 w-4" /> Chat
-              </button>
-              <button
-                type="button"
-                onClick={() => onAction(doctor, "Gọi thoại")}
-                className="min-h-10 rounded-xl bg-[#eff6ff] text-[#2563eb] text-xs font-bold flex items-center justify-center gap-1 cursor-pointer hover:bg-blue-100"
-              >
-                <PhoneCall className="h-4 w-4" /> Gọi thoại
-              </button>
-              <button
-                type="button"
-                onClick={() => onAction(doctor, "Video call")}
-                className="min-h-10 rounded-xl bg-[#f5f3ff] text-[#7c3aed] text-xs font-bold flex items-center justify-center gap-1 cursor-pointer hover:bg-purple-100"
-              >
-                <Video className="h-4 w-4" /> Video
-              </button>
-            </div>
+            {consultType === "Chat" ? (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => onAction(doctor, "Chat")}
+                  className="w-full min-h-11 rounded-xl bg-[#16a34a] hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition active:scale-[0.98]"
+                >
+                  <MessageCircle className="h-4.5 w-4.5" /> Bắt đầu Chat ngay
+                </button>
+              </div>
+            ) : consultType === "Video call" ? (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  onClick={() => onAction(doctor, "Video call")}
+                  className="w-full min-h-11 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition active:scale-[0.98]"
+                >
+                  <Video className="h-4.5 w-4.5" /> Bắt đầu Video call
+                </button>
+              </div>
+            ) : (
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => onAction(doctor, "Chat")}
+                  className="min-h-10 rounded-xl bg-[#ecfdf3] text-[#16a34a] text-xs font-bold flex items-center justify-center gap-1 cursor-pointer hover:bg-emerald-100"
+                >
+                  <MessageCircle className="h-4 w-4" /> Chat
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onAction(doctor, "Gọi thoại")}
+                  className="min-h-10 rounded-xl bg-[#eff6ff] text-[#2563eb] text-xs font-bold flex items-center justify-center gap-1 cursor-pointer hover:bg-blue-100"
+                >
+                  <PhoneCall className="h-4 w-4" /> Gọi thoại
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onAction(doctor, "Video call")}
+                  className="min-h-10 rounded-xl bg-[#f5f3ff] text-[#7c3aed] text-xs font-bold flex items-center justify-center gap-1 cursor-pointer hover:bg-purple-100"
+                >
+                  <Video className="h-4 w-4" /> Video
+                </button>
+              </div>
+            )}
           </article>
         ))}
       </div>
@@ -2228,14 +2219,14 @@ function BottomSheet({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center px-3 pb-3">
+    <div className="absolute inset-0 z-50 flex items-end justify-center px-3 pb-3">
       <button
         type="button"
         aria-label="Đóng"
         className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative max-h-[88vh] w-full max-w-md overflow-y-auto rounded-[28px] bg-white p-4 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
+      <div className="relative max-h-[88vh] w-full overflow-y-auto rounded-[28px] bg-white p-4 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
         <button
           type="button"
           aria-label="Đóng"

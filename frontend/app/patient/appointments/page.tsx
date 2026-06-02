@@ -13,6 +13,8 @@ import {
   CalendarCheck2,
   CalendarDays,
   ChevronRight,
+  ChevronDown,
+  SlidersHorizontal,
   Clock3,
   HeartPulse,
   Plus,
@@ -50,7 +52,8 @@ type AppointmentStatus =
   | "upcoming"
   | "in-progress"
   | "completed"
-  | "follow-up";
+  | "follow-up"
+  | "pending-payment";
 
 type AppointmentMode = "Online" | "Offline";
 
@@ -103,6 +106,7 @@ type Sheet =
   | "recommendation-reason"
   | "care-update"
   | "reschedule"
+  | "payment"
   | null;
 
 const initialAppointments: Appointment[] = [
@@ -348,6 +352,7 @@ export default function PatientAppointmentsPage() {
   const [demoAlertType, setDemoAlertType] = useState<"Online" | "Offline">("Online");
   const [demoAlertMinutes, setDemoAlertMinutes] = useState(15);
   const [showOfflineMapSheet, setShowOfflineMapSheet] = useState(false);
+  const [showDemoSettings, setShowDemoSettings] = useState(false);
 
   const [activeConsultationSession, setActiveConsultationSession] =
     useState<Appointment | null>(null);
@@ -394,7 +399,7 @@ export default function PatientAppointmentsPage() {
 
   // Filter list of appointments based on their dynamic state
   const upcoming = useMemo(() => {
-    return appointments.filter((item) => item.status === "upcoming");
+    return appointments.filter((item) => item.status === "upcoming" || item.status === "pending-payment");
   }, [appointments]);
 
   const completed = appointments.filter((item) => item.status === "completed");
@@ -451,11 +456,19 @@ export default function PatientAppointmentsPage() {
           `Thời gian: ${customFields.date} lúc ${customFields.time}`,
         ],
         risk: customFields.specialty === "Tim mạch" ? "Trung bình" : "Thấp",
-        status: "upcoming",
+        status: customFields.mode === "Online" ? "pending-payment" : "upcoming",
         facility: customFields.facility,
         fee: customFields.fee,
       };
       setAppointments((current) => [nextAppointment, ...current]);
+      
+      if (customFields.mode === "Online") {
+        setSelectedAppointment(nextAppointment);
+        setSheet("payment");
+      } else {
+        setSheet(null);
+        showToast("Đã đặt lịch khám thành công!");
+      }
     } else {
       const specialty = bookingSpecialty ?? "Nội tổng quát";
       const doctor =
@@ -475,13 +488,29 @@ export default function PatientAppointmentsPage() {
           "Ngày gần nhất: 24/07 - 14:30",
         ],
         risk: specialty === "Tim mạch" ? "Trung bình" : "Thấp",
-        status: "upcoming",
+        status: bookingMode === "Online" ? "pending-payment" : "upcoming",
         fee: bookingMode === "Online" ? doctor.fee ?? "150.000đ" : undefined,
       };
       setAppointments((current) => [nextAppointment, ...current]);
+      
+      if (bookingMode === "Online") {
+        setSelectedAppointment(nextAppointment);
+        setSheet("payment");
+      } else {
+        setSheet(null);
+        showToast("Đã đặt lịch khám thành công!");
+      }
     }
+  };
+
+  const handleConfirmPayment = (appointmentId: string) => {
+    setAppointments((current) =>
+      current.map((item) =>
+        item.id === appointmentId ? { ...item, status: "upcoming" as const } : item,
+      ),
+    );
     setSheet(null);
-    showToast("Đã đặt lịch khám thành công!");
+    showToast("Thanh toán thành công! Lịch khám đã được xác nhận.");
   };
 
   const confirmCareUpdate = () => {
@@ -491,9 +520,32 @@ export default function PatientAppointmentsPage() {
     showToast(`Đã cập nhật: ${careStatus}`);
   };
 
-  const confirmReschedule = (action: string) => {
+  const handleRescheduleDate = (appointmentId: string, newDate: string) => {
+    setAppointments((current) =>
+      current.map((item) =>
+        item.id === appointmentId ? { ...item, date: newDate } : item,
+      ),
+    );
     setSheet(null);
-    showToast(action);
+    showToast(`Đã đổi ngày khám sang ${newDate}`);
+  };
+
+  const handleRescheduleTime = (appointmentId: string, newTime: string) => {
+    setAppointments((current) =>
+      current.map((item) =>
+        item.id === appointmentId ? { ...item, time: newTime } : item,
+      ),
+    );
+    setSheet(null);
+    showToast(`Đã đổi giờ khám sang ${newTime}`);
+  };
+
+  const handleCancelAppointment = (appointmentId: string) => {
+    setAppointments((current) =>
+      current.filter((item) => item.id !== appointmentId),
+    );
+    setSheet(null);
+    showToast("Đã hủy lịch hẹn khám thành công");
   };
 
   // Simulate physician responses in live chat
@@ -552,81 +604,6 @@ export default function PatientAppointmentsPage() {
     <main className="flex h-full min-h-0 justify-center bg-[#e2f1e8] px-2 py-2 sm:px-4 sm:py-5 font-sans">
       <div className="relative mx-auto flex h-full min-h-0 w-full max-w-97.5 flex-col overflow-hidden rounded-3xl border border-[#d2eadb] bg-[#f5fbf7] shadow-[0_24px_64px_rgba(15,23,42,0.16)]">
         
-        {/* Header toolbar for simulating dynamic notifications */}
-        <div className="bg-[#10233f] px-3 py-2.5 flex flex-col gap-2 text-xs border-b border-slate-800">
-          <div className="flex items-center justify-between text-emerald-300 font-semibold">
-            <div className="flex items-center gap-1.5">
-              <Sparkles className="h-3.5 w-3.5 text-yellow-400 animate-spin" />
-              <span>Chế độ Demo Tương Tác:</span>
-            </div>
-            
-            {/* Main Toggle Switch */}
-            <button
-              type="button"
-              onClick={() => {
-                setDemoAlertActive(!demoAlertActive);
-                showToast(
-                  !demoAlertActive
-                    ? `Đã bật thông báo khám ${demoAlertType} (${demoAlertMinutes} phút)`
-                    : "Đã tắt thông báo"
-                );
-              }}
-              className={`px-3 py-1 rounded-full text-[11px] font-extrabold transition-all cursor-pointer ${
-                demoAlertActive
-                  ? "bg-emerald-500 text-white font-bold shadow-[0_0_8px_#10b981]"
-                  : "bg-slate-700 text-slate-300 hover:bg-slate-600"
-              }`}
-            >
-              {demoAlertActive ? "🟢 ĐANG BẬT THÔNG BÁO" : "🔴 ĐANG TẮT THÔNG BÁO"}
-            </button>
-          </div>
-
-          {/* Sub-controls when active */}
-          <div className="flex items-center justify-between gap-2 border-t border-slate-800/80 pt-1.5 text-[11px] text-slate-300">
-            <div className="flex items-center gap-2">
-              <span>Hình thức:</span>
-              <button
-                type="button"
-                onClick={() => {
-                  const nextType = demoAlertType === "Online" ? "Offline" : "Online";
-                  setDemoAlertType(nextType);
-                  if (demoAlertActive) {
-                    showToast(`Đổi sang thông báo khám ${nextType}`);
-                  }
-                }}
-                className="px-2.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-emerald-400 font-extrabold hover:bg-slate-700 cursor-pointer active:scale-95 transition-all"
-              >
-                {demoAlertType === "Online" ? "🟢 Online" : "🏥 Offline"}
-              </button>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <span>Thời gian:</span>
-              <div className="flex gap-1">
-                {[5, 15, 30].map((mins) => (
-                  <button
-                    key={mins}
-                    type="button"
-                    onClick={() => {
-                      setDemoAlertMinutes(mins);
-                      if (demoAlertActive) {
-                        showToast(`Đặt thời gian còn lại: ${mins} phút`);
-                      }
-                    }}
-                    className={`px-1.5 py-0.5 rounded text-[10px] font-bold cursor-pointer transition-all active:scale-95 ${
-                      demoAlertMinutes === mins
-                        ? "bg-emerald-500 text-white font-extrabold"
-                        : "bg-slate-800 border border-slate-700 text-slate-400 hover:bg-slate-700"
-                    }`}
-                  >
-                    {mins}p
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Dynamic Alert Banner */}
         {demoAlertActive && !activeConsultationSession && (
           <div className="bg-gradient-to-r from-emerald-600 to-teal-700 text-white px-4 py-2.5 flex items-center justify-between shadow-md relative overflow-hidden transition-all duration-300">
@@ -682,6 +659,21 @@ export default function PatientAppointmentsPage() {
                   <CalendarDays className="h-3.5 w-3.5" />
                   Sắp tới: {summary.upcoming}
                 </span>
+
+                {/* Dropdown toggle for simulation config */}
+                <button
+                  type="button"
+                  onClick={() => setShowDemoSettings(!showDemoSettings)}
+                  className={`rounded-full px-3 py-1 border flex items-center gap-1 transition-all active:scale-95 cursor-pointer ${
+                    showDemoSettings
+                      ? "bg-[#10233f] text-emerald-300 border-[#10233f]"
+                      : "bg-[#f1f5f9] text-[#475569] border-[#e2e8f0] hover:bg-[#e2e8f0]"
+                  }`}
+                >
+                  <SlidersHorizontal className="h-3.5 w-3.5" />
+                  <span>Bật tắt thông báo</span>
+                  <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${showDemoSettings ? 'rotate-180' : ''}`} />
+                </button>
               </div>
             </div>
             <button
@@ -693,6 +685,85 @@ export default function PatientAppointmentsPage() {
               <Plus className="h-5.5 w-5.5" />
             </button>
           </div>
+
+          {/* Collapsible Demo Settings Panel */}
+          {showDemoSettings && (
+            <div className="mt-3 overflow-hidden rounded-2xl border border-[#d2eadb] bg-[#10233f] text-slate-200 shadow-lg transition-all duration-300 animate-fadeIn">
+              <div className="px-4 py-3 flex flex-col gap-3 text-xs">
+                <div className="flex items-center justify-between text-emerald-300 font-semibold border-b border-slate-800 pb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-yellow-400 animate-spin" />
+                    <span className="font-bold text-[12px]">Bật/tắt thông báo cuộc họp mô phỏng</span>
+                  </div>
+                  
+                  {/* Main Toggle Switch */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDemoAlertActive(!demoAlertActive);
+                      showToast(
+                        !demoAlertActive
+                          ? `Đã bật thông báo khám ${demoAlertType} (${demoAlertMinutes} phút)`
+                          : "Đã tắt thông báo"
+                      );
+                    }}
+                    className={`px-3 py-1 rounded-full text-[11px] font-extrabold transition-all cursor-pointer ${
+                      demoAlertActive
+                        ? "bg-emerald-500 text-white font-bold shadow-[0_0_8px_#10b981]"
+                        : "bg-slate-700 text-slate-300 hover:bg-slate-600"
+                    }`}
+                  >
+                    {demoAlertActive ? "🟢 ĐANG BẬT" : "🔴 ĐANG TẮT"}
+                  </button>
+                </div>
+
+                {/* Sub-controls when active */}
+                <div className="flex flex-col gap-2.5 pt-0.5 text-[11px]">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Hình thức cuộc họp mô phỏng:</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const nextType = demoAlertType === "Online" ? "Offline" : "Online";
+                        setDemoAlertType(nextType);
+                        if (demoAlertActive) {
+                          showToast(`Đổi sang thông báo khám ${nextType}`);
+                        }
+                      }}
+                      className="px-2.5 py-1 rounded bg-slate-800 border border-slate-700 text-emerald-400 font-extrabold hover:bg-slate-700 cursor-pointer active:scale-95 transition-all"
+                    >
+                      {demoAlertType === "Online" ? "🟢 Online" : "🏥 Offline"}
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">Thời gian đếm ngược:</span>
+                    <div className="flex gap-1.5">
+                      {[5, 15, 30].map((mins) => (
+                        <button
+                          key={mins}
+                          type="button"
+                          onClick={() => {
+                            setDemoAlertMinutes(mins);
+                            if (demoAlertActive) {
+                              showToast(`Đặt thời gian còn lại: ${mins} phút`);
+                            }
+                          }}
+                          className={`px-2.5 py-1 rounded text-[10px] font-bold cursor-pointer transition-all active:scale-95 ${
+                            demoAlertMinutes === mins
+                              ? "bg-emerald-500 text-white font-extrabold shadow-[0_0_6px_#10b981]"
+                              : "bg-slate-800 border border-slate-700 text-slate-400 hover:bg-slate-700"
+                          }`}
+                        >
+                          {mins}p
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </header>
 
         <section className="min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(7rem+env(safe-area-inset-bottom))] pt-4 scroll-pb-[calc(7rem+env(safe-area-inset-bottom))]">
@@ -754,7 +825,12 @@ export default function PatientAppointmentsPage() {
                   demoAlertMinutes={demoAlertMinutes}
                   onDetail={() => setDetail(item)}
                   onJoin={() => {
-                    setActiveConsultationSession(item);
+                    if (item.status === "pending-payment") {
+                      setSelectedAppointment(item);
+                      setSheet("payment");
+                    } else {
+                      setActiveConsultationSession(item);
+                    }
                   }}
                   onShowMap={() => setShowOfflineMapSheet(true)}
                   onReschedule={() => {
@@ -790,6 +866,12 @@ export default function PatientAppointmentsPage() {
         {/* High fidelity interactive Video Call and Chat Room simulation */}
         {activeConsultationSession && (
           <div className="absolute inset-0 bg-[#0f172a] z-50 flex flex-col transition-all duration-300">
+            {/* Hide emergency FAB and bottom navigation during active session */}
+            <style dangerouslySetInnerHTML={{ __html: `
+              .emergency-fab-motion, .patient-bottom-nav {
+                display: none !important;
+              }
+            ` }} />
             {/* Session Header */}
             <div className="bg-slate-900 border-b border-slate-800 px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -1116,83 +1198,95 @@ export default function PatientAppointmentsPage() {
           </div>
         )}
 
+
+        {sheet === "booking" ? (
+          <BottomSheet onClose={() => setSheet(null)}>
+            <BookingSheet
+              specialty={bookingSpecialty}
+              mode={bookingMode}
+              fromAi={bookingFromAi}
+              doctors={availableDoctors}
+              selectedDoctorId={selectedDoctorId}
+              onSpecialtyChange={(specialty) => {
+                setBookingSpecialty(specialty);
+                setSelectedDoctorId(doctorsForSpecialty(specialty)[0]?.id ?? null);
+              }}
+              onDoctorChange={setSelectedDoctorId}
+              onModeChange={setBookingMode}
+              onUnknown={() => setSheet("unknown")}
+              onConfirm={createAppointment}
+            />
+          </BottomSheet>
+        ) : null}
+
+        {sheet === "unknown" ? (
+          <BottomSheet onClose={() => setSheet(null)}>
+            <UnknownSpecialtySheet
+              onSelect={(specialty) => {
+                setBookingSpecialty(specialty);
+                setSelectedDoctorId(doctorsForSpecialty(specialty)[0]?.id ?? null);
+                setSheet("booking");
+              }}
+            />
+          </BottomSheet>
+        ) : null}
+
+        {sheet === "recommendation-reason" && selectedRecommendation ? (
+          <BottomSheet onClose={() => setSheet(null)}>
+            <RecommendationReasonSheet
+              recommendation={selectedRecommendation}
+              onBook={() => {
+                setBookingSpecialty(selectedRecommendation.specialty);
+                setSelectedDoctorId("doctor-nguyen-a");
+                setBookingMode("Online");
+                setBookingFromAi(true);
+                setSheet("booking");
+              }}
+            />
+          </BottomSheet>
+        ) : null}
+
+        {sheet === "care-update" ? (
+          <BottomSheet onClose={() => setSheet(null)}>
+            <CareUpdateSheet
+              selected={careStatus}
+              onSelect={setCareStatus}
+              onConfirm={confirmCareUpdate}
+            />
+          </BottomSheet>
+        ) : null}
+
+        {sheet === "reschedule" && selectedAppointment ? (
+          <BottomSheet onClose={() => setSheet(null)}>
+            <RescheduleSheet
+              appointment={selectedAppointment}
+              onRescheduleDate={(date) => handleRescheduleDate(selectedAppointment.id, date)}
+              onRescheduleTime={(time) => handleRescheduleTime(selectedAppointment.id, time)}
+              onCancel={() => handleCancelAppointment(selectedAppointment.id)}
+            />
+          </BottomSheet>
+        ) : null}
+
+        {sheet === "payment" && selectedAppointment ? (
+          <BottomSheet onClose={() => setSheet(null)}>
+            <PaymentSheet
+              appointment={selectedAppointment}
+              onConfirmPayment={(id) => handleConfirmPayment(id)}
+              onClose={() => setSheet(null)}
+            />
+          </BottomSheet>
+        ) : null}
+
+        {detail ? (
+          <AppointmentDetail appointment={detail} onClose={() => setDetail(null)} />
+        ) : null}
+
+        {toast ? (
+          <div className="absolute left-1/2 top-14 z-60 -translate-x-1/2 rounded-full bg-[#10233f] px-4 py-2 text-[12px] font-bold text-white shadow-lg border border-slate-700 transition-all duration-300">
+            {toast}
+          </div>
+        ) : null}
       </div>
-
-      {sheet === "booking" ? (
-        <BottomSheet onClose={() => setSheet(null)}>
-          <BookingSheet
-            specialty={bookingSpecialty}
-            mode={bookingMode}
-            fromAi={bookingFromAi}
-            doctors={availableDoctors}
-            selectedDoctorId={selectedDoctorId}
-            onSpecialtyChange={(specialty) => {
-              setBookingSpecialty(specialty);
-              setSelectedDoctorId(doctorsForSpecialty(specialty)[0]?.id ?? null);
-            }}
-            onDoctorChange={setSelectedDoctorId}
-            onModeChange={setBookingMode}
-            onUnknown={() => setSheet("unknown")}
-            onConfirm={createAppointment}
-          />
-        </BottomSheet>
-      ) : null}
-
-      {sheet === "unknown" ? (
-        <BottomSheet onClose={() => setSheet(null)}>
-          <UnknownSpecialtySheet
-            onSelect={(specialty) => {
-              setBookingSpecialty(specialty);
-              setSelectedDoctorId(doctorsForSpecialty(specialty)[0]?.id ?? null);
-              setSheet("booking");
-            }}
-          />
-        </BottomSheet>
-      ) : null}
-
-      {sheet === "recommendation-reason" && selectedRecommendation ? (
-        <BottomSheet onClose={() => setSheet(null)}>
-          <RecommendationReasonSheet
-            recommendation={selectedRecommendation}
-            onBook={() => {
-              setBookingSpecialty(selectedRecommendation.specialty);
-              setSelectedDoctorId("doctor-nguyen-a");
-              setBookingMode("Online");
-              setBookingFromAi(true);
-              setSheet("booking");
-            }}
-          />
-        </BottomSheet>
-      ) : null}
-
-      {sheet === "care-update" ? (
-        <BottomSheet onClose={() => setSheet(null)}>
-          <CareUpdateSheet
-            selected={careStatus}
-            onSelect={setCareStatus}
-            onConfirm={confirmCareUpdate}
-          />
-        </BottomSheet>
-      ) : null}
-
-      {sheet === "reschedule" && selectedAppointment ? (
-        <BottomSheet onClose={() => setSheet(null)}>
-          <RescheduleSheet
-            appointment={selectedAppointment}
-            onAction={confirmReschedule}
-          />
-        </BottomSheet>
-      ) : null}
-
-      {detail ? (
-        <AppointmentDetail appointment={detail} onClose={() => setDetail(null)} />
-      ) : null}
-
-      {toast ? (
-        <div className="fixed left-1/2 top-14 z-60 -translate-x-1/2 rounded-full bg-[#10233f] px-4 py-2 text-[12px] font-bold text-white shadow-lg border border-slate-700 transition-all duration-300">
-          {toast}
-        </div>
-      ) : null}
     </main>
   );
 }
@@ -1391,8 +1485,12 @@ function AppointmentCard({
               ⏳ Còn {demoAlertMinutes}p
             </span>
           ) : (
-            <span className="rounded-full bg-[#ecfdf3] px-3 py-1 text-[11px] font-extrabold text-[#16a34a]">
-              {appointment.mode}
+            <span className={`rounded-full px-3 py-1 text-[11px] font-extrabold ${
+              appointment.status === "pending-payment"
+                ? "bg-amber-100 text-amber-600 animate-pulse"
+                : "bg-[#ecfdf3] text-[#16a34a]"
+            }`}>
+              {appointment.status === "pending-payment" ? "⚠️ Chờ thanh toán" : appointment.mode}
             </span>
           )}
         </div>
@@ -1434,22 +1532,42 @@ function AppointmentCard({
             📍 Xem bản đồ & Chỉ đường
           </button>
         ) : (
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={onDetail}
-              className="min-h-11 rounded-2xl bg-[#16a34a] hover:bg-emerald-700 text-xs font-bold text-white transition-all cursor-pointer active:scale-95"
-            >
-              Chi tiết
-            </button>
-            <button
-              type="button"
-              onClick={onReschedule}
-              className="min-h-11 rounded-2xl border border-[#d8eadf] bg-white text-xs font-bold text-[#334155] hover:bg-slate-50 transition-all cursor-pointer active:scale-95"
-            >
-              Đổi lịch
-            </button>
-          </div>
+          appointment.status === "pending-payment" ? (
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <button
+                type="button"
+                onClick={onJoin}
+                className="min-h-11 rounded-2xl bg-[#16a34a] hover:bg-emerald-700 text-xs font-bold text-white transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                <DollarSign className="h-4 w-4" />
+                Thanh toán ngay
+              </button>
+              <button
+                type="button"
+                onClick={onReschedule}
+                className="min-h-11 rounded-2xl border border-red-100 bg-red-50 text-xs font-bold text-[#dc2626] hover:bg-red-100 transition-all cursor-pointer active:scale-95 px-3.5"
+              >
+                Hủy
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={onDetail}
+                className="min-h-11 rounded-2xl bg-[#16a34a] hover:bg-emerald-700 text-xs font-bold text-white transition-all cursor-pointer active:scale-95"
+              >
+                Chi tiết
+              </button>
+              <button
+                type="button"
+                onClick={onReschedule}
+                className="min-h-11 rounded-2xl border border-[#d8eadf] bg-white text-xs font-bold text-[#334155] hover:bg-slate-50 transition-all cursor-pointer active:scale-95"
+              >
+                Đổi lịch
+              </button>
+            </div>
+          )
         )}
       </div>
     </article>
@@ -1582,24 +1700,129 @@ function RecommendationReasonSheet({
 
 function RescheduleSheet({
   appointment,
-  onAction,
+  onRescheduleDate,
+  onRescheduleTime,
+  onCancel,
 }: {
   appointment: Appointment;
-  onAction: (message: string) => void;
+  onRescheduleDate: (date: string) => void;
+  onRescheduleTime: (time: string) => void;
+  onCancel: () => void;
 }) {
+  const [mode, setMode] = useState<"menu" | "date" | "time" | "cancel" >("menu");
+
+  const dates = [
+    "24/07/2025",
+    "25/07/2025",
+    "26/07/2025",
+    "28/07/2025",
+  ];
+
+  const times = [
+    "08:30",
+    "10:00",
+    "14:30",
+    "16:00",
+  ];
+
+  if (mode === "date") {
+    return (
+      <div className="pr-9 font-sans">
+        <SheetTitle eyebrow="Đổi lịch" title="Chọn ngày khám mới" />
+        <div className="mt-4 grid gap-2">
+          {dates.map((d) => (
+            <ChoiceButton
+              key={d}
+              active={appointment.date === d}
+              label={d}
+              onClick={() => onRescheduleDate(d)}
+            />
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => setMode("menu")}
+          className="mt-4 min-h-11 w-full rounded-2xl border border-slate-200 bg-white text-xs font-bold text-[#334155] hover:bg-slate-50 transition-all cursor-pointer active:scale-95"
+        >
+          Quay lại
+        </button>
+      </div>
+    );
+  }
+
+  if (mode === "time") {
+    return (
+      <div className="pr-9 font-sans">
+        <SheetTitle eyebrow="Đổi lịch" title="Chọn giờ khám mới" />
+        <div className="mt-4 grid gap-2">
+          {times.map((t) => (
+            <ChoiceButton
+              key={t}
+              active={appointment.time === t}
+              label={t}
+              onClick={() => onRescheduleTime(t)}
+            />
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={() => setMode("menu")}
+          className="mt-4 min-h-11 w-full rounded-2xl border border-slate-200 bg-white text-xs font-bold text-[#334155] hover:bg-slate-50 transition-all cursor-pointer active:scale-95"
+        >
+          Quay lại
+        </button>
+      </div>
+    );
+  }
+
+  if (mode === "cancel") {
+    return (
+      <div className="pr-9 font-sans">
+        <SheetTitle eyebrow="Hủy lịch" title="Xác nhận hủy lịch khám" />
+        <div className="mt-4 rounded-2xl bg-[#fff1f2] border border-[#fecaca] p-4 text-xs text-[#991b1b] leading-relaxed">
+          <p className="font-extrabold text-[13px] mb-1">Cảnh báo hủy lịch khám</p>
+          <p className="text-[#7f1d1d]">Hành động hủy lịch khám không thể khôi phục. Bạn có chắc chắn muốn hủy lịch hẹn khám này?</p>
+        </div>
+        <div className="mt-5 flex gap-2">
+          <button
+            type="button"
+            onClick={() => setMode("menu")}
+            className="flex-1 min-h-11 rounded-2xl border border-slate-200 bg-white text-xs font-bold text-[#334155] hover:bg-slate-50 transition-all cursor-pointer active:scale-95"
+          >
+            Quay lại
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            className="flex-1 min-h-11 rounded-2xl bg-red-600 hover:bg-red-700 text-xs font-bold text-white transition-all cursor-pointer active:scale-95"
+          >
+            Hủy lịch khám
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="pr-9">
+    <div className="pr-9 font-sans">
       <SheetTitle eyebrow="Đổi lịch" title={`Khám ${appointment.specialty}`} />
       <div className="mt-4 grid gap-2">
         <ChoiceButton
-          label="Đổi ngày"
-          onClick={() => onAction("Đã mở chọn ngày mới")}
+          label="Đổi ngày khám"
+          onClick={() => setMode("date")}
         />
         <ChoiceButton
-          label="Đổi giờ"
-          onClick={() => onAction("Đã mở chọn giờ mới")}
+          label="Đổi giờ khám"
+          onClick={() => setMode("time")}
         />
-        <ChoiceButton label="Hủy lịch" onClick={() => onAction("Đã gửi yêu cầu hủy lịch")} />
+        <button
+          type="button"
+          onClick={() => setMode("cancel")}
+          className="flex min-h-12 items-center justify-between rounded-2xl border border-red-100 bg-[#fff5f5] px-3 text-left text-sm font-semibold text-[#dc2626] cursor-pointer transition-all active:scale-98 hover:bg-[#ffe4e4]"
+        >
+          <span>Hủy lịch hẹn</span>
+          <ChevronRight className="h-4 w-4 text-[#dc2626]" />
+        </button>
       </div>
     </div>
   );
@@ -1633,6 +1856,9 @@ function BookingSheet({
   const [selectedDocId, setSelectedDocId] = useState<string | null>(selectedDoctorId || "doctor-nguyen-a");
   const [selectedFacilityId, setSelectedFacilityId] = useState<string>("facility-hosp-a");
   const [selectedHour, setSelectedHour] = useState<string>("14:00");
+  const [selectedDate, setSelectedDate] = useState<string>("24/07/2025");
+
+  const availableDates = ["24/07/2025", "25/07/2025", "26/07/2025", "27/07/2025"];
 
   const activeSpecialty = specialty || "Tim mạch";
   const filteredDoctors = bookingDoctors.filter((doc) => doc.specialty === activeSpecialty);
@@ -1646,7 +1872,7 @@ function BookingSheet({
         doctorName: activeDoctor.name,
         specialty: activeSpecialty,
         time: activeDoctor.onlineSlot?.split(" ")[0] || "14:30",
-        date: "24/07/2025",
+        date: activeDoctor.onlineSlot?.includes("ngày mai") ? "25/07/2025" : "24/07/2025",
         fee: activeDoctor.fee || "150.000đ",
       });
     } else {
@@ -1657,7 +1883,7 @@ function BookingSheet({
         doctorName: activeDoctor.name,
         specialty: activeSpecialty,
         time: selectedHour,
-        date: "24/07/2025",
+        date: selectedDate,
         facility: facilityObj.name,
       });
     }
@@ -1722,7 +1948,7 @@ function BookingSheet({
             onClick={() => setInternalMode("Offline")}
             className={`py-3.5 rounded-2xl text-sm font-extrabold transition-all border flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-98 ${
               internalMode === "Offline"
-                ? "bg-[#eff6ff] border-[#2563eb] text-[#2563eb] shadow-[0_0_12px_rgba(37,99,235,0.1)]"
+                ? "bg-[#ecfdf3] border-[#16a34a] text-[#16a34a] shadow-[0_0_12px_rgba(22,163,74,0.1)]"
                 : "bg-white border-[#d8eadf] text-[#475569] hover:bg-slate-50"
             }`}
           >
@@ -1759,7 +1985,7 @@ function BookingSheet({
                     <p className="text-xs text-slate-500 mt-1 font-semibold">Slot khả dụng: <span className="text-[#16a34a] font-bold">{doc.onlineSlot}</span></p>
                   </div>
                   <div className="text-right shrink-0">
-                    <span className="text-xs font-bold text-slate-700 bg-white border border-slate-200 px-2 py-1 rounded-lg">Chọn</span>
+                    <span className="text-xs font-bold text-[#16a34a] bg-[#ecfdf3] border border-emerald-100 px-2 py-1 rounded-lg">Chọn</span>
                   </div>
                 </button>
               ))}
@@ -1798,12 +2024,12 @@ function BookingSheet({
                   onClick={() => setSelectedFacilityId(fac.id)}
                   className={`p-3 text-left rounded-2xl border transition-all cursor-pointer ${
                     selectedFacilityId === fac.id
-                      ? "border-blue-500 bg-[#eff6ff]"
+                      ? "border-[#16a34a] bg-[#ecfdf3]/40"
                       : "border-slate-200 bg-white hover:bg-slate-50"
                   }`}
                 >
                   <div className="flex items-center gap-1.5 mb-1">
-                    <Building2 className="h-4 w-4 text-blue-600" />
+                    <Building2 className="h-4 w-4 text-[#16a34a]" />
                     <span className="text-sm font-bold text-[#10233f]">{fac.name}</span>
                   </div>
                   <div className="flex justify-between items-center text-xs text-slate-500">
@@ -1821,7 +2047,7 @@ function BookingSheet({
             <select
               value={selectedDocId || ""}
               onChange={(e) => setSelectedDocId(e.target.value)}
-              className="w-full bg-[#f8fbfd] border border-[#d8eadf] rounded-2xl px-3.5 py-3 text-sm font-semibold text-[#334155] focus:outline-none focus:border-blue-500"
+              className="w-full bg-[#f8fbfd] border border-[#d8eadf] rounded-2xl px-3.5 py-3 text-sm font-semibold text-[#334155] focus:outline-none focus:border-[#16a34a]"
             >
               {filteredDoctors.map((doc) => (
                 <option key={doc.id} value={doc.id}>
@@ -1831,9 +2057,34 @@ function BookingSheet({
             </select>
           </div>
 
-          {/* Step 3: Choose slot/hour */}
+          {/* Step 3: Choose Date */}
           <div>
-            <p className="text-[12px] font-bold text-slate-500 mb-2 uppercase tracking-wide">3. Chọn giờ khám phù hợp</p>
+            <p className="text-[12px] font-bold text-slate-500 mb-2 uppercase tracking-wide">3. Chọn ngày khám</p>
+            <div className="grid grid-cols-4 gap-2">
+              {availableDates.map((dateStr) => {
+                const label = dateStr === "24/07/2025" ? "Hôm nay" : dateStr === "25/07/2025" ? "Ngày mai" : dateStr === "26/07/2025" ? "Ngày kia" : dateStr.split("/")[0] + "/" + dateStr.split("/")[1];
+                return (
+                  <button
+                    key={dateStr}
+                    type="button"
+                    onClick={() => setSelectedDate(dateStr)}
+                    className={`py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer active:scale-95 flex flex-col items-center justify-center ${
+                      selectedDate === dateStr
+                        ? "bg-[#16a34a] border-[#16a34a] text-white shadow-sm"
+                        : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    <span className="text-[9px] font-medium leading-none opacity-85">{label}</span>
+                    <span className="text-[11px] font-extrabold mt-0.5">{dateStr.substring(0, 5)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Step 4: Choose slot/hour */}
+          <div>
+            <p className="text-[12px] font-bold text-slate-500 mb-2 uppercase tracking-wide">4. Chọn giờ khám phù hợp</p>
             <div className="grid grid-cols-3 gap-2">
               {facilitiesList
                 .find((f) => f.id === selectedFacilityId)
@@ -1844,7 +2095,7 @@ function BookingSheet({
                     onClick={() => setSelectedHour(hour)}
                     className={`py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer active:scale-95 ${
                       selectedHour === hour
-                        ? "bg-blue-600 border-blue-600 text-white shadow-sm"
+                        ? "bg-[#16a34a] border-[#16a34a] text-white shadow-sm"
                         : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
                     }`}
                   >
@@ -1854,7 +2105,7 @@ function BookingSheet({
             </div>
           </div>
 
-          {/* Step 4: Quick Confirmation summary */}
+          {/* Step 5: Quick Confirmation summary */}
           <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3.5 space-y-2">
             <h4 className="text-xs font-extrabold uppercase tracking-wide text-slate-500">Thông tin xác nhận đặt lịch</h4>
             <div className="grid grid-cols-[1fr_auto] gap-2 text-sm">
@@ -1870,7 +2121,7 @@ function BookingSheet({
               <span className="text-[#10233f] font-extrabold">{activeDoctor.name}</span>
 
               <span className="text-slate-500 font-semibold">Thời gian hẹn:</span>
-              <span className="text-[#2563eb] font-extrabold">24/07/2025 lúc {selectedHour}</span>
+              <span className="text-[#16a34a] font-extrabold">{selectedDate} lúc {selectedHour}</span>
             </div>
           </div>
         </div>
@@ -1880,11 +2131,7 @@ function BookingSheet({
       <button
         type="button"
         onClick={handleBookingSubmit}
-        className={`mt-5 min-h-12 w-full rounded-2xl text-sm font-extrabold text-white cursor-pointer transition-all active:scale-95 shadow-md ${
-          internalMode === "Online"
-            ? "bg-[#16a34a] hover:bg-emerald-700 shadow-emerald-200/50"
-            : "bg-blue-600 hover:bg-blue-700 shadow-blue-200/50"
-        }`}
+        className="mt-5 min-h-12 w-full rounded-2xl text-sm font-extrabold text-white cursor-pointer transition-all active:scale-95 shadow-md bg-[#16a34a] hover:bg-[#15803d] shadow-emerald-200/50"
       >
         Xác nhận đặt lịch khám
       </button>
@@ -1916,6 +2163,152 @@ function UnknownSpecialtySheet({
   );
 }
 
+function PaymentSheet({
+  appointment,
+  onConfirmPayment,
+  onClose,
+}: {
+  appointment: Appointment;
+  onConfirmPayment: (id: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="pr-9 font-sans text-left">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes scan {
+          0%, 100% { top: 8%; }
+          50% { top: 92%; }
+        }
+      ` }} />
+      <SheetTitle
+        eyebrow="Thanh toán lịch khám"
+        title="Thanh toán trực tuyến"
+      />
+      
+      {/* Appointment Info Summary */}
+      <div className="mt-4 p-3 bg-emerald-50/50 border border-emerald-100 rounded-2xl flex flex-col gap-1 text-xs">
+        <div className="flex justify-between items-center">
+          <span className="text-slate-500 font-medium">Bác sĩ tư vấn:</span>
+          <span className="font-extrabold text-[#10233f]">{appointment.doctorName}</span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-slate-500 font-medium">Chuyên khoa:</span>
+          <span className="font-bold text-[#10233f]">{appointment.specialty}</span>
+        </div>
+        <div className="flex justify-between items-center">
+          <span className="text-slate-500 font-medium">Thời gian hẹn:</span>
+          <span className="font-bold text-[#16a34a]">{appointment.date} lúc {appointment.time}</span>
+        </div>
+        <div className="flex justify-between items-center border-t border-emerald-100/60 pt-1.5 mt-1">
+          <span className="text-slate-500 font-bold">Phí dịch vụ:</span>
+          <span className="text-sm font-extrabold text-[#16a34a] bg-[#ecfdf3] px-2 py-0.5 rounded-lg border border-emerald-200">
+            {appointment.fee ?? "150.000đ"}
+          </span>
+        </div>
+      </div>
+
+      {/* QR & Bank Info Section */}
+      <div className="mt-4 flex flex-col items-center gap-3">
+        <p className="text-[11px] text-[#64748b] text-center max-w-[280px]">
+          Quét mã QR dưới đây bằng ứng dụng Ngân hàng hoặc Ví điện tử của bạn để thanh toán:
+        </p>
+
+        {/* Beautiful Animated QR Frame */}
+        <div className="relative w-44 h-44 bg-white p-3.5 rounded-3xl border-2 border-emerald-100/80 shadow-md flex items-center justify-center overflow-hidden">
+          {/* Scanning Line Overlay */}
+          <div className="absolute left-0 right-0 h-[2px] bg-[#16a34a] shadow-[0_0_10px_#10b981] animate-[scan_2s_ease-in-out_infinite]"></div>
+          
+          <svg viewBox="0 0 100 100" className="w-full h-full text-slate-800">
+            {/* Position detection markers */}
+            <path d="M 0 0 H 24 V 24 H 0 Z M 4 4 H 20 V 20 H 4 Z M 8 8 H 16 V 16 H 8 Z" fill="currentColor"/>
+            <path d="M 76 0 H 100 V 24 H 76 Z M 80 4 H 96 V 20 H 80 Z M 84 8 H 92 V 16 H 84 Z" fill="currentColor"/>
+            <path d="M 0 76 H 24 V 100 H 0 Z M 4 80 H 20 V 96 H 4 Z M 8 84 H 16 V 92 H 8 Z" fill="currentColor"/>
+            
+            {/* Styled center grid mock code patterns */}
+            <rect x="32" y="4" width="4" height="12" fill="currentColor" />
+            <rect x="40" y="4" width="8" height="4" fill="currentColor" />
+            <rect x="52" y="4" width="4" height="4" fill="#16a34a" />
+            <rect x="60" y="4" width="12" height="4" fill="currentColor" />
+            <rect x="32" y="20" width="12" height="4" fill="currentColor" />
+            <rect x="48" y="16" width="4" height="12" fill="currentColor" />
+            <rect x="56" y="20" width="8" height="4" fill="#16a34a" />
+            <rect x="68" y="16" width="4" height="8" fill="currentColor" />
+            
+            <rect x="4" y="32" width="12" height="4" fill="currentColor" />
+            <rect x="20" y="32" width="4" height="12" fill="currentColor" />
+            <rect x="28" y="40" width="8" height="4" fill="currentColor" />
+            <rect x="40" y="36" width="12" height="8" fill="#16a34a" />
+            <rect x="56" y="32" width="4" height="16" fill="currentColor" />
+            <rect x="64" y="40" width="12" height="4" fill="currentColor" />
+            <rect x="80" y="32" width="16" height="4" fill="currentColor" />
+            <rect x="84" y="40" width="4" height="12" fill="currentColor" />
+            
+            <rect x="4" y="48" width="4" height="8" fill="currentColor" />
+            <rect x="12" y="52" width="8" height="4" fill="currentColor" />
+            <rect x="28" y="52" width="4" height="12" fill="currentColor" />
+            <rect x="36" y="48" width="12" height="4" fill="currentColor" />
+            <rect x="52" y="56" width="8" height="8" fill="currentColor" />
+            <rect x="64" y="48" width="4" height="12" fill="#16a34a" />
+            <rect x="72" y="56" width="8" height="4" fill="currentColor" />
+            <rect x="88" y="48" width="8" height="8" fill="currentColor" />
+            
+            <rect x="28" y="68" width="12" height="4" fill="currentColor" />
+            <rect x="44" y="68" width="4" height="12" fill="currentColor" />
+            <rect x="52" y="72" width="12" height="4" fill="#16a34a" />
+            <rect x="68" y="68" width="4" height="12" fill="currentColor" />
+            <rect x="76" y="72" width="12" height="4" fill="currentColor" />
+            
+            <rect x="32" y="84" width="8" height="8" fill="currentColor" />
+            <rect x="44" y="88" width="12" height="4" fill="currentColor" />
+            <rect x="60" y="84" width="4" height="8" fill="currentColor" />
+            <rect x="68" y="88" width="4" height="4" fill="#16a34a" />
+            <rect x="76" y="84" width="8" height="8" fill="currentColor" />
+            <rect x="85" y="88" width="8" height="4" fill="currentColor" />
+          </svg>
+        </div>
+
+        {/* Transfer details copy card */}
+        <div className="w-full bg-[#f8fbfd] border border-slate-100 rounded-2xl p-3.5 space-y-2 text-xs">
+          <div className="grid grid-cols-[80px_1fr] gap-x-2 gap-y-1">
+            <span className="text-slate-500 font-medium">Ngân hàng:</span>
+            <span className="font-extrabold text-[#10233f]">VietinBank (ICB)</span>
+            
+            <span className="text-slate-500 font-medium">Số tài khoản:</span>
+            <span className="font-mono font-extrabold text-slate-800 tracking-wide select-all">102874982635</span>
+            
+            <span className="text-slate-500 font-medium">Tên tài khoản:</span>
+            <span className="font-bold text-[#10233f]">CONG TY CO PHAN Y TE MERCY</span>
+            
+            <span className="text-slate-500 font-medium">Nội dung CK:</span>
+            <span className="font-mono font-extrabold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 select-all shrink-0 w-fit">
+              MERCY {appointment.id.replace("appointment-", "").substring(0, 8).toUpperCase()}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Confirmation Actions */}
+      <div className="mt-5 space-y-2.5">
+        <button
+          type="button"
+          onClick={() => onConfirmPayment(appointment.id)}
+          className="w-full min-h-12 bg-[#16a34a] hover:bg-emerald-700 text-white rounded-2xl font-bold text-sm shadow-md shadow-emerald-200/50 cursor-pointer active:scale-95 transition-all flex items-center justify-center gap-1.5"
+        >
+          <CheckCircle2 className="h-4.5 w-4.5" />
+          Xác nhận đã thanh toán
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="w-full min-h-11 border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 rounded-2xl font-semibold text-xs cursor-pointer active:scale-95 transition-all"
+        >
+          Thanh toán sau
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function AppointmentDetail({
   appointment,
   onClose,
@@ -1926,14 +2319,14 @@ function AppointmentDetail({
   const completed = appointment.status === "completed";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center px-3 pb-3">
+    <div className="absolute inset-0 z-50 flex items-end justify-center px-3 pb-3">
       <button
         type="button"
         aria-label="Đóng chi tiết lịch khám"
         className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-md rounded-[28px] bg-white p-4 shadow-[0_28px_80px_rgba(15,23,42,0.28)] z-10">
+      <div className="relative w-full rounded-[28px] bg-white p-4 shadow-[0_28px_80px_rgba(15,23,42,0.28)] z-10">
         <button
           type="button"
           onClick={onClose}
@@ -2029,14 +2422,14 @@ function BottomSheet({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center px-3 pb-3">
+    <div className="absolute inset-0 z-50 flex items-end justify-center px-3 pb-3">
       <button
         type="button"
         aria-label="Đóng"
         className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative max-h-[88vh] w-full max-w-md overflow-y-auto rounded-[28px] bg-white p-4 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
+      <div className="relative max-h-[88vh] w-full overflow-y-auto rounded-[28px] bg-white p-4 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
         <button
           type="button"
           aria-label="Đóng"

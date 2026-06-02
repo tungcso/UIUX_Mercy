@@ -244,7 +244,7 @@ export default function BookingModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm px-4 py-6">
+    <div className="absolute inset-0 z-50 flex items-center justify-center bg-slate-950/40 backdrop-blur-sm px-4 py-6">
       <div className="flex max-h-[calc(100vh-3rem)] w-full max-w-sm flex-col overflow-hidden rounded-2xl bg-white shadow-[0_40px_90px_rgba(15,23,42,0.32)]">
         <header className="rounded-t-2xl bg-[#16a34a] px-4 py-4 text-white">
           <div className="flex items-center gap-3">
