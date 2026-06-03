@@ -63,3 +63,22 @@ body {
   animation: none;
   transform: scale(0.95);
 }
+
+/* Hide emergency button when a modal, bottom sheet, or full-screen overlay is open */
+body:has(.inset-0.z-50) .emergency-fab-motion,
+body:has(.inset-0.z-55) .emergency-fab-motion,
+body:has(.inset-0.z-60) .emergency-fab-motion,
+body:has(.inset-0.z-\[60\]) .emergency-fab-motion {
+  display: none !important;
+}
+
+/* Hide scrollbars globally while maintaining scroll functionality */
+*::-webkit-scrollbar {
+  display: none !important;
+}
+* {
+  -ms-overflow-style: none !important;  /* IE and Edge */
+  scrollbar-width: none !important;  /* Firefox */
+}
+
+

@@ -220,7 +220,7 @@ export default function MessageBubble({
             </div>
             <div>
               <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-[#dc2626]">
-                Emergency warning
+                Cảnh báo khẩn cấp
               </p>
               <h3 className="mt-1 text-[16px] font-bold text-[#991b1b]">
                 {message.title}

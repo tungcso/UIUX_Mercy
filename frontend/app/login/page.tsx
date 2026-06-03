@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Eye, EyeOff, Mail, Lock } from "lucide-react";
+import { CheckCircle2, Eye, EyeOff, Mail, Lock, ArrowLeft } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -385,6 +385,15 @@ export default function LoginPage() {
           />
 
           <div className="relative w-full max-w-md animate-login-pop rounded-[1.75rem] border border-white/40 bg-white/95 p-8 shadow-[0_24px_70px_rgba(2,6,23,0.35)] backdrop-blur-md sm:p-10">
+            {/* Quay lại màn hình Đăng nhập */}
+            <button
+              type="button"
+              onClick={() => setIsRoleSelectionOpen(false)}
+              className="absolute left-6 top-6 flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 hover:text-slate-700 transition-all cursor-pointer active:scale-95 shadow-xs border border-slate-200/50"
+              title="Quay lại đăng nhập"
+            >
+              <ArrowLeft className="h-4.5 w-4.5" />
+            </button>
             <div className="text-center mb-6">
               <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-600 shadow-inner shadow-emerald-600/10">
                 <Lock className="h-7 w-7" />

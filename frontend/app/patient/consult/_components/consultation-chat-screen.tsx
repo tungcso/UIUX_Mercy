@@ -70,17 +70,40 @@ function detectEmergency(text: string) {
   return dangerousSymptoms.some((keyword) => lowerText.includes(keyword));
 }
 
+// Fallback in-memory store in case localStorage is blocked/disabled by browser policies (e.g. Incognito mode)
+const memoryStoredCases: Record<string, ConsultCase> = {};
+
 function isPersistableConsultCase(caseId: string) {
-  return caseId === "new" || /^(ai|doctor|emergency)-\d+$/.test(caseId);
+  const defaultMockIds = [
+    "headache-3d",
+    "fever-cough",
+    "follow-up-meds",
+    "emergency-chest-pain",
+  ];
+  return (
+    caseId === "new" ||
+    /^(ai|doctor|emergency)-\d+$/.test(caseId) ||
+    defaultMockIds.includes(caseId)
+  );
 }
 
 function persistOpenedConsultCase(consultCase: ConsultCase) {
+  // Always update memory cache first
+  memoryStoredCases[consultCase.id] = consultCase;
+
   if (typeof window === "undefined") return;
 
   try {
     const raw = window.localStorage.getItem(storedConsultCasesKey);
     const storedCases = raw ? (JSON.parse(raw) as ConsultCase[]) : [];
     const safeStoredCases = Array.isArray(storedCases) ? storedCases : [];
+
+    // Safeguard: Check if the case in localStorage has more history than what we are trying to save!
+    const existingCase = safeStoredCases.find((c) => c.id === consultCase.id);
+    if (existingCase && existingCase.messages.length > consultCase.messages.length) {
+      return;
+    }
+
     const nextCases = [
       consultCase,
       ...safeStoredCases.filter((caseItem) => caseItem.id !== consultCase.id),
@@ -98,11 +121,15 @@ function readStoredConsultCase(caseId: string) {
   try {
     const raw = window.localStorage.getItem(storedConsultCasesKey);
     const storedCases = raw ? (JSON.parse(raw) as ConsultCase[]) : [];
-    if (!Array.isArray(storedCases)) return null;
-    return storedCases.find((caseItem) => caseItem.id === caseId) ?? null;
+    if (Array.isArray(storedCases)) {
+      const found = storedCases.find((caseItem) => caseItem.id === caseId);
+      if (found) return found;
+    }
   } catch {
-    return null;
+    // Ignore storage failures and fall back to in-memory store
   }
+
+  return memoryStoredCases[caseId] ?? null;
 }
 
 function buildEmergencyMessage(): ConsultMessage {
@@ -114,9 +141,8 @@ function buildEmergencyMessage(): ConsultMessage {
     text: "Nội dung bạn vừa nhập có dấu hiệu nguy hiểm. Nếu triệu chứng đang nặng lên, hãy kết nối bác sĩ hoặc gọi cấp cứu ngay.",
     time: getTimeLabel(),
     actions: [
-      { label: "AI hỗ trợ khẩn", value: "urgent-ai", tone: "danger" },
-      { label: "Kết nối bác sĩ", value: "connect-doctor", tone: "primary" },
       { label: "Gọi 115", value: "call-emergency", tone: "danger" },
+      { label: "Kết nối bác sĩ", value: "connect-doctor", tone: "primary" },
     ],
   };
 }
@@ -748,6 +774,112 @@ function CompleteCaseControl({ onComplete }: { onComplete: () => void }) {
   );
 }
 
+const ON_SHIFT_DOCTORS = [
+  {
+    id: "doctor-nguyen-a",
+    name: "BS Nguyễn Văn A",
+    specialty: "Tim mạch",
+    avatar: "👨‍⚕️",
+    eta: "Phản hồi trong 1 phút",
+  },
+  {
+    id: "doctor-tran-b",
+    name: "BS Trần Thị B",
+    specialty: "Hô hấp",
+    avatar: "👩‍⚕️",
+    eta: "Phản hồi trong 2 phút",
+  },
+  {
+    id: "doctor-le-c",
+    name: "BS Lê Minh C",
+    specialty: "Thần kinh",
+    avatar: "👨‍⚕️",
+    eta: "Phản hồi trong 3 phút",
+  },
+  {
+    id: "doctor-pham-d",
+    name: "BS Phạm Thu D",
+    specialty: "Da liễu",
+    avatar: "👩‍⚕️",
+    eta: "Phản hồi trong 4 phút",
+  },
+  {
+    id: "doctor-lan",
+    name: "BS. Lan",
+    specialty: "Nội tổng quát",
+    avatar: "👩🏾",
+    eta: "Phản hồi trong 3 phút",
+  },
+  {
+    id: "doctor-hung",
+    name: "BS. Hùng",
+    specialty: "Tai Mũi Họng",
+    avatar: "👩🏻‍🦰",
+    eta: "Phản hồi trong 4 phút",
+  },
+];
+
+function getSpecialtyFromCase(caseItem: ConsultCase): string {
+  const title = caseItem.title.toLowerCase();
+  const tag = caseItem.tag?.toLowerCase() || "";
+  const allMessagesText = caseItem.messages.map((m) => m.text).join(" ").toLowerCase();
+
+  if (title.includes("ngực") || title.includes("tim") || tag.includes("tim") || allMessagesText.includes("ngực") || allMessagesText.includes("tim")) {
+    return "Tim mạch";
+  }
+  if (title.includes("thở") || title.includes("ho") || title.includes("sốt") || tag.includes("hô hấp") || tag.includes("hấp") || allMessagesText.includes("thở") || allMessagesText.includes("ho") || allMessagesText.includes("sốt")) {
+    return "Hô hấp";
+  }
+  if (title.includes("đầu") || title.includes("chóng mặt") || tag.includes("thần kinh") || allMessagesText.includes("đầu") || allMessagesText.includes("chóng mặt")) {
+    return "Thần kinh";
+  }
+  if (title.includes("da") || tag.includes("da liễu") || allMessagesText.includes("da") || allMessagesText.includes("ngứa") || allMessagesText.includes("mẩn đỏ")) {
+    return "Da liễu";
+  }
+  if (title.includes("tai") || title.includes("mũi") || title.includes("họng") || tag.includes("tai mũi họng")) {
+    return "Tai Mũi Họng";
+  }
+  return "Nội tổng quát";
+}
+
+function findNearestAvailableDoctor(caseItem: ConsultCase) {
+  const spec = getSpecialtyFromCase(caseItem);
+  return ON_SHIFT_DOCTORS.find((d) => d.specialty === spec) || ON_SHIFT_DOCTORS[4];
+}
+
+function getDoctorSimulatedReply(
+  patientText: string,
+  doctorName: string,
+  messages: ConsultMessage[],
+): ConsultMessage {
+  const t = patientText.toLowerCase();
+  let replyText = "";
+
+  if (t.includes("đau ngực") || t.includes("tức ngực") || t.includes("đau tim") || t.includes("nhói")) {
+    replyText = "Cơn đau ngực của bạn xuất hiện đột ngột hay kéo dài? Bạn hãy ngồi nghỉ ngơi hoàn toàn, thả lỏng người và thở đều. Nếu đau lan ra vai, cánh tay trái hoặc hàm kèm khó thở vã mồ hôi, hãy báo tôi biết ngay hoặc gọi cấp cứu 115.";
+  } else if (t.includes("khó thở") || t.includes("thở gấp") || t.includes("ngạt") || t.includes("hụt hơi")) {
+    replyText = "Bạn hãy ngồi thẳng lưng, nới lỏng cổ áo và hít thở sâu, chậm rãi qua mũi rồi thở ra bằng miệng. Tránh nằm xuống vì nằm sẽ làm khó thở tăng lên. Bạn có kèm theo ho hay đau ngực không?";
+  } else if (t.includes("đau đầu") || t.includes("nhức đầu") || t.includes("chóng mặt") || t.includes("choáng")) {
+    replyText = "Đau đầu, chóng mặt có thể do huyết áp thay đổi hoặc mệt mỏi. Bạn có máy đo huyết áp tại nhà không? Hãy nằm nghỉ trong phòng tối, yên tĩnh và tránh sử dụng điện thoại lúc này nhé.";
+  } else if (t.includes("sốt") || t.includes("nóng") || t.includes("ớn lạnh")) {
+    replyText = "Nếu đo nhiệt độ trên 38.5 độ C, bạn có thể dùng Paracetamol 500mg (1 viên, giãn cách 4-6 tiếng nếu còn sốt). Hãy uống nhiều nước ấm hoặc Oresol để bù nước và theo dõi sát thân nhiệt.";
+  } else if (t.includes("ho") || t.includes("họng") || t.includes("đờm")) {
+    replyText = "Bạn nên súc họng bằng nước muối sinh lý ấm, giữ ấm vùng cổ và uống nhiều nước ấm. Nếu ho kéo dài, có đờm đục hoặc ho ra máu, cần đi chụp X-quang phổi sớm.";
+  } else if (t.includes("cảm ơn") || t.includes("vâng") || t.includes("ok") || t.includes("dạ")) {
+    replyText = "Không có gì. Tôi vẫn đang trực tuyến và theo dõi ca bệnh của bạn. Hãy tiếp tục nghỉ ngơi và thông báo ngay nếu bạn thấy triệu chứng tăng lên nhé.";
+  } else {
+    replyText = "Tôi đã ghi nhận thông tin bạn chia sẻ. Để tư vấn chính xác, bạn có thể mô tả chi tiết hơn cảm giác khó chịu hiện tại, hoặc cho tôi biết bạn có tiền sử bệnh lý và đang dùng loại thuốc nào không?";
+  }
+
+  return {
+    id: `doctor-reply-${Date.now()}`,
+    role: "assistant",
+    kind: "text",
+    text: replyText,
+    time: getTimeLabel(),
+  };
+}
+
 export default function ConsultationChatScreen({
   consultCase,
   readOnly = false,
@@ -775,17 +907,21 @@ export default function ConsultationChatScreen({
   const [emergencyActive, setEmergencyActive] = useState(
     activeCase.severity === "high",
   );
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [connectingStatus, setConnectingStatus] = useState("Đang kiểm tra danh sách bác sĩ trực ca...");
+  const [targetSpecialty, setTargetSpecialty] = useState("Nội tổng quát");
+  const [isDoctorTyping, setIsDoctorTyping] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const statusLabel = emergencyActive
-    ? "Urgent"
+    ? "Khẩn cấp"
     : activeCase.status === "Đang đánh giá"
       ? "Đang đánh giá"
     : activeCase.type === "doctor"
-      ? "Doctor"
-      : "AI Active";
+      ? "Bác sĩ"
+      : "AI hoạt động";
 
   const subtitle = useMemo(() => {
     if (readOnly) return "Đang xem lại cuộc hội thoại đã hoàn thành";
@@ -827,7 +963,87 @@ export default function ConsultationChatScreen({
     setMessages(storedCase.messages);
     setEmergencyActive(storedCase.severity === "high");
     setStorageChecked(true);
-  }, [consultCase]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [consultCase.id]);
+
+  useEffect(() => {
+    if (activeCase.type === "doctor" && activeCase.status === "Đang đánh giá" && !readOnly) {
+      const spec = activeCase.doctor ? activeCase.doctor.specialty : getSpecialtyFromCase(activeCase);
+      setTargetSpecialty(spec);
+      setIsConnecting(true);
+      setConnectingStatus("Đang kiểm tra danh sách bác sĩ trực ca...");
+      
+      const t1 = setTimeout(() => {
+        setConnectingStatus("Tìm thấy bác sĩ trực ca. Đang chuyển tiếp thông tin...");
+      }, 1000);
+      
+      const t2 = setTimeout(() => {
+        setConnectingStatus("Đang thiết lập phòng tư vấn trực tuyến...");
+      }, 2000);
+      
+      const t3 = setTimeout(() => {
+        const selectedDoc = activeCase.doctor || findNearestAvailableDoctor(activeCase);
+        
+        const systemMsg: ConsultMessage = {
+          id: `system-connected-${Date.now()}`,
+          role: "system",
+          kind: "system",
+          text: `Đã kết nối thành công với ${selectedDoc.name} (${selectedDoc.specialty}) đang rảnh ca gần nhất.`,
+          time: getTimeLabel(),
+        };
+        
+        const isEmergency = activeCase.severity === "high" || emergencyActive;
+        const messagesToAppend: ConsultMessage[] = [systemMsg];
+        
+        if (!isEmergency) {
+          messagesToAppend.push({
+            id: `system-warning-${Date.now()}`,
+            role: "system",
+            kind: "system",
+            text: `⚠️ Bác sĩ có thể đang trong ca làm việc nên sẽ phản hồi chậm hơn bình thường. Bạn có thể để lại câu hỏi tại đây.`,
+            time: getTimeLabel(),
+          });
+        }
+        
+        const introText = isEmergency
+          ? `Chào bạn, tôi là ${selectedDoc.name}. Tôi đã nhận được thông tin về triệu chứng '${activeCase.title}' của bạn và đang trực tuyến để hỗ trợ tư vấn. Hãy cho tôi biết cụ thể tình trạng hiện tại của bạn nhé.`
+          : `Chào bạn, tôi là ${selectedDoc.name}. Bác sĩ có thể đang trong ca làm nên sẽ trả lời muộn hơn bình thường một chút. Bạn cứ để lại câu hỏi hoặc tình trạng của mình ở đây nhé, tôi sẽ phản hồi ngay khi có thể.`;
+
+        const introMsg: ConsultMessage = {
+          id: `doctor-intro-${Date.now()}`,
+          role: "assistant",
+          kind: "text",
+          text: introText,
+          time: getTimeLabel(),
+        };
+        
+        messagesToAppend.push(introMsg);
+        
+        setMessages((current) => {
+          const nextMessages = [...current, ...messagesToAppend];
+          const updatedCase: ConsultCase = {
+            ...activeCase,
+            doctor: selectedDoc,
+            title: `Tư vấn với ${selectedDoc.name}`,
+            subtitle: `${selectedDoc.specialty} · Đang trực tuyến`,
+            status: "Đang tư vấn",
+            messages: nextMessages,
+          };
+          setActiveCase(updatedCase);
+          persistOpenedConsultCase(updatedCase);
+          return nextMessages;
+        });
+        
+        setIsConnecting(false);
+      }, 3000);
+      
+      return () => {
+        clearTimeout(t1);
+        clearTimeout(t2);
+        clearTimeout(t3);
+      };
+    }
+  }, [activeCase.id, activeCase.type, activeCase.status, activeCase.doctor, readOnly, emergencyActive]);
 
   useEffect(() => {
     if (!storageChecked) return;
@@ -861,7 +1077,7 @@ export default function ConsultationChatScreen({
   const appendPatientMessage = (text: string) => {
     if (readOnly) return;
     const cleanText = text.trim();
-    if (!cleanText || isSending || aiPhase) return;
+    if (!cleanText || isSending || aiPhase || isDoctorTyping) return;
 
     const isEmergencyInput = detectEmergency(cleanText);
     const patientMessage: ConsultMessage = {
@@ -875,6 +1091,22 @@ export default function ConsultationChatScreen({
     setDraft("");
     setIsSending(true);
     setMessages((current) => [...current, patientMessage]);
+
+    if (activeCase.doctor) {
+      window.setTimeout(() => {
+        setIsSending(false);
+        setIsDoctorTyping(true);
+      }, 220);
+
+      window.setTimeout(() => {
+        setMessages((current) => {
+          const docReply = getDoctorSimulatedReply(cleanText, activeCase.doctor!.name, current);
+          setIsDoctorTyping(false);
+          return [...current, docReply];
+        });
+      }, 1800);
+      return;
+    }
 
     window.setTimeout(() => {
       setIsSending(false);
@@ -911,7 +1143,7 @@ export default function ConsultationChatScreen({
     }
 
     if (action.value === "connect-doctor") {
-      router.push("/patient/consult/new?mode=doctor&emergency=1");
+      router.push(`/patient/consult/doctor-${Date.now()}?mode=doctor`);
       return;
     }
 
@@ -926,7 +1158,10 @@ export default function ConsultationChatScreen({
     }
 
     if (action.value === "book") {
-      router.push("/patient/appointments");
+      const specialty = consultCase.doctor?.specialty || getSpecialtyFromCase(consultCase);
+      const doctorName = consultCase.doctor?.name;
+      const url = `/patient/appointments?specialty=${encodeURIComponent(specialty)}${doctorName ? `&doctorName=${encodeURIComponent(doctorName)}` : ""}&fromAi=1`;
+      router.push(url);
       return;
     }
 
@@ -1031,13 +1266,24 @@ export default function ConsultationChatScreen({
     showToast("Đã đánh dấu ca tư vấn là hoàn thành");
   };
 
+  if (!storageChecked) {
+    return (
+      <main className="relative flex h-full min-h-0 bg-[#e2f1e8] px-2 py-2 sm:px-4 sm:py-5">
+        <div className="relative mx-auto flex h-full min-h-0 w-full max-w-97.5 flex-col items-center justify-center rounded-3xl border border-[#d2eadb] bg-[#f5fbf7] shadow-[0_18px_48px_rgba(15,23,42,0.12)]">
+          <Loader2 className="h-8 w-8 animate-spin text-[#16a34a]" />
+          <p className="mt-2 text-sm text-[#64748b]">Đang tải cuộc trò chuyện...</p>
+        </div>
+      </main>
+    );
+  }
+
   return (
-    <main className="relative flex h-full min-h-0 bg-[#edf6fb] px-2 py-2 sm:px-4 sm:py-5">
-      <div className="relative mx-auto flex h-full min-h-0 w-full max-w-97.5 flex-col overflow-hidden rounded-3xl border border-[#dbeaf1] bg-[#f8fbfd] shadow-[0_18px_48px_rgba(15,23,42,0.12)]">
+    <main className="relative flex h-full min-h-0 bg-[#e2f1e8] px-2 py-2 sm:px-4 sm:py-5">
+      <div className="relative mx-auto flex h-full min-h-0 w-full max-w-97.5 flex-col overflow-hidden rounded-3xl border border-[#d2eadb] bg-[#f5fbf7] shadow-[0_18px_48px_rgba(15,23,42,0.12)]">
         <ChatHeader
-          title={activeCase.title}
-          subtitle={subtitle}
-          status={statusLabel}
+          title={activeCase.doctor ? activeCase.doctor.name : activeCase.title}
+          subtitle={activeCase.doctor ? `${activeCase.doctor.specialty} · Đang trực tuyến` : subtitle}
+          status={activeCase.doctor ? "Bác sĩ" : statusLabel}
           emergency={emergencyActive}
           onBack={() => router.push("/patient/consult")}
           onTitleClick={() => setSheet("case-info")}
@@ -1053,19 +1299,71 @@ export default function ConsultationChatScreen({
           <CompleteCaseControl onComplete={markCaseCompleted} />
         ) : null}
 
-        <div
-          className="min-h-0 flex-1 overflow-y-auto relative"
-          ref={scrollRef}
-        >
-          <ConversationList
-            messages={messages}
-            onQuickReply={appendPatientMessage}
-            onAction={handleAction}
-          />
-          {aiPhase ? <AiTypingIndicator phase={aiPhase} /> : null}
-        </div>
+        {isConnecting ? (
+          <div className="flex flex-1 flex-col items-center justify-center bg-gradient-to-b from-[#f5fbf7] to-[#e2f1e8] px-6 py-12 text-center relative overflow-hidden">
+            {/* Pulsing Concentric Rings */}
+            <div className="relative flex h-48 w-48 items-center justify-center">
+              <div className="absolute h-40 w-40 rounded-full border border-[#16a34a]/10 bg-[#16a34a]/5 radar-pulse-3" />
+              <div className="absolute h-32 w-32 rounded-full border border-[#16a34a]/20 bg-[#16a34a]/10 radar-pulse-2" />
+              <div className="absolute h-24 w-24 rounded-full border border-[#16a34a]/30 bg-[#16a34a]/15 radar-pulse-1" />
+              
+              <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl bg-[#16a34a] text-white shadow-[0_12px_28px_rgba(22,163,74,0.3)] z-10">
+                <Stethoscope className="h-8 w-8 animate-pulse" />
+              </div>
 
-        {activeCase.status?.toLowerCase().includes("hoàn") || readOnly ? (
+              {/* Floating Doctor Avatars */}
+              <div className="absolute left-2 top-6 flex h-10 w-10 items-center justify-center rounded-full bg-white text-lg shadow-md animate-bounce">
+                👨‍⚕️
+              </div>
+              <div className="absolute right-0 bottom-10 flex h-10 w-10 items-center justify-center rounded-full bg-white text-lg shadow-md animate-bounce [animation-delay:0.3s]">
+                👩‍⚕️
+              </div>
+              <div className="absolute top-4 right-2 flex h-10 w-10 items-center justify-center rounded-full bg-white text-lg shadow-md animate-bounce [animation-delay:0.6s]">
+                👩🏾
+              </div>
+            </div>
+
+            <div className="mt-8 max-w-xs z-10">
+              <h3 className="text-[18px] font-bold text-[#10233f] tracking-tight animate-pulse">
+                Đang kết nối bác sĩ trực...
+              </h3>
+              <p className="mt-2 text-[13px] leading-5 text-[#64748b]">
+                Hệ thống đang liên hệ với bác sĩ chuyên khoa{" "}
+                <span className="font-bold text-[#16a34a]">{targetSpecialty}</span> đang rảnh ca gần nhất.
+              </p>
+            </div>
+
+            {/* Connection Status Log */}
+            <div className="mt-6 w-full max-w-xs rounded-2xl border border-[#d8e7ef] bg-white/70 p-4 text-left shadow-[0_8px_20px_rgba(15,23,42,0.03)] backdrop-blur-xs z-10">
+              <div className="flex items-center gap-2.5 text-xs text-[#475569] font-medium">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#16a34a] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#16a34a]"></span>
+                </span>
+                <span>{connectingStatus}</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div
+            className="min-h-0 flex-1 overflow-y-auto relative"
+            ref={scrollRef}
+          >
+            <ConversationList
+              messages={messages}
+              onQuickReply={appendPatientMessage}
+              onAction={handleAction}
+            />
+            {aiPhase ? <AiTypingIndicator phase={aiPhase} /> : null}
+            {isDoctorTyping ? <AiTypingIndicator phase={null} doctorName={activeCase.doctor?.name} /> : null}
+          </div>
+        )}
+
+        {isConnecting ? (
+          <footer className="border-t border-[#dbeaf1] bg-white px-4 py-3 text-center text-xs text-[#64748b] font-medium">
+            Thiết lập cuộc gọi mã hóa đầu cuối...
+          </footer>
+        ) : activeCase.status?.toLowerCase().includes("hoàn") || readOnly ? (
           <footer className="border-t border-[#d8eadf] bg-white px-3 pb-[calc(0.8rem+env(safe-area-inset-bottom))] pt-3">
             <div className="flex items-center justify-between gap-3">
               <span className="min-w-0 text-[13px] leading-5 text-[#64748b]">
@@ -1073,7 +1371,7 @@ export default function ConsultationChatScreen({
               </span>
               <button
                 type="button"
-                onClick={() => router.push("/patient/consult/new?mode=ai")}
+                onClick={() => router.push(`/patient/consult/ai-${Date.now()}?mode=ai`)}
                 className="min-h-11 rounded-2xl bg-[#f1f5f9] px-4 py-2 text-sm font-semibold text-[#475569] border border-[#e6e9ee]"
               >
                 Chat mới
@@ -1094,27 +1392,20 @@ export default function ConsultationChatScreen({
             onMedicine={() => {
               setDraft("Tôi muốn hỏi về thuốc đang dùng");
             }}
-            onBookDoctor={() => router.push("/patient/appointments")}
+            onBookDoctor={() => {
+              const specialty = consultCase.doctor?.specialty || getSpecialtyFromCase(consultCase);
+              const doctorName = consultCase.doctor?.name;
+              const url = `/patient/appointments?specialty=${encodeURIComponent(specialty)}${doctorName ? `&doctorName=${encodeURIComponent(doctorName)}` : ""}&fromAi=1`;
+              router.push(url);
+            }}
             onEmergency={() => setSheet("emergency")}
             isSending={isSending}
-            isAiLoading={aiPhase !== null}
+            isAiLoading={aiPhase !== null || isDoctorTyping}
             isRecording={isRecording}
           />
         )}
 
-        <button
-          type="button"
-          onClick={() => setSheet("emergency")}
-          aria-label="Mở hỗ trợ khẩn"
-          className={`emergency-fab-motion absolute right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-[0_12px_26px_rgba(220,38,38,0.18)] transition ${
-            emergencyActive ? "animate-pulse bg-[#dc2626]" : "bg-[#fb923c]"
-          }`}
-          style={{
-            bottom: "calc(env(safe-area-inset-bottom, 6px) + 8rem + 8px)",
-          }}
-        >
-          <AlertTriangle className="h-6 w-6" />
-        </button>
+
 
         {aiDisclaimerVisible ? (
           <div className="pointer-events-none absolute left-3 right-3 top-3 z-50 rounded-2xl border border-[#bfdbfe] bg-[#eff6ff] px-3 py-2 text-[11px] leading-4 text-[#1e3a8a] shadow-[0_10px_24px_rgba(30,64,175,0.14)]">
@@ -1122,7 +1413,6 @@ export default function ConsultationChatScreen({
             bác sĩ chuyên ngành.
           </div>
         ) : null}
-      </div>
 
       <input
         ref={fileInputRef}
@@ -1172,13 +1462,8 @@ export default function ConsultationChatScreen({
           ) : null}
           {sheet === "emergency" ? (
             <EmergencySheet
-              onUrgentAi={() => {
-                setSheet(null);
-                markCaseEmergency();
-                setMessages((current) => [...current, buildEmergencyMessage()]);
-              }}
               onConnectDoctor={() =>
-                router.push("/patient/consult/new?mode=doctor&emergency=1")
+                router.push(`/patient/consult/doctor-${Date.now()}?mode=doctor&emergency=1`)
               }
               onCall={() => {
                 window.location.href = "tel:115";
@@ -1203,10 +1488,11 @@ export default function ConsultationChatScreen({
       ) : null}
 
       {toast ? (
-        <div className="fixed left-1/2 top-4 z-60 -translate-x-1/2 rounded-full bg-[#10233f] px-4 py-2 text-[13px] font-semibold text-white shadow-lg">
+        <div className="absolute left-1/2 top-4 z-60 -translate-x-1/2 rounded-full bg-[#10233f] px-4 py-2 text-[13px] font-semibold text-white shadow-lg">
           {toast}
         </div>
       ) : null}
+      </div>
 
       <style jsx global>{`
         @keyframes reply-slide {
@@ -1229,14 +1515,37 @@ export default function ConsultationChatScreen({
             transform: scaleY(1);
           }
         }
+
+        @keyframes radar-ping {
+          0% {
+            transform: scale(0.9);
+            opacity: 0.8;
+          }
+          100% {
+            transform: scale(2.2);
+            opacity: 0;
+          }
+        }
+        .radar-pulse-1 {
+          animation: radar-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+        .radar-pulse-2 {
+          animation: radar-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+          animation-delay: 0.6s;
+        }
+        .radar-pulse-3 {
+          animation: radar-ping 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+          animation-delay: 1.2s;
+        }
       `}</style>
     </main>
   );
 }
 
-function AiTypingIndicator({ phase }: { phase: AiPhase }) {
-  const label =
-    phase === "image"
+function AiTypingIndicator({ phase, doctorName }: { phase: AiPhase; doctorName?: string }) {
+  const label = doctorName
+    ? `Bác sĩ ${doctorName} đang soạn câu trả lời...`
+    : phase === "image"
       ? "Đang phân tích hình ảnh y tế..."
       : phase === "evaluating"
         ? "Đang đánh giá mức độ khẩn..."
@@ -1262,14 +1571,14 @@ function BottomSheet({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center px-3 pb-3">
+    <div className="fixed inset-0 z-50 flex items-end justify-center px-3 pb-[calc(12px+env(safe-area-inset-bottom))]">
       <button
         type="button"
         aria-label="Đóng"
         className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative w-full max-w-md rounded-[28px] bg-white p-4 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
+      <div className="relative max-h-[88vh] w-full max-w-97.5 overflow-y-auto rounded-[28px] bg-white p-5 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
         <button
           type="button"
           aria-label="Đóng"
@@ -1476,18 +1785,16 @@ function VoiceSheet({
 }
 
 function EmergencySheet({
-  onUrgentAi,
   onConnectDoctor,
   onCall,
 }: {
-  onUrgentAi: () => void;
   onConnectDoctor: () => void;
   onCall: () => void;
 }) {
   return (
     <div className="pr-9">
       <p className="text-[12px] font-bold uppercase tracking-[0.14em] text-[#dc2626]">
-        Emergency support
+        Hỗ trợ khẩn cấp
       </p>
       <h2 className="mt-1 text-[20px] font-bold text-[#991b1b]">
         Bạn cần hỗ trợ khẩn?
@@ -1497,11 +1804,6 @@ function EmergencySheet({
         cứu ngay.
       </p>
       <div className="mt-4 grid gap-2">
-        <EmergencyButton
-          icon={Bot}
-          label="AI hỗ trợ khẩn"
-          onClick={onUrgentAi}
-        />
         <EmergencyButton
           icon={Stethoscope}
           label="Kết nối bác sĩ"
@@ -1572,14 +1874,14 @@ function UploadDropzoneModal({
       : "Kéo thả ảnh, PDF hoặc hồ sơ y tế vào đây.";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+    <div className="absolute inset-0 z-55 flex items-center justify-center px-4">
       <button
         type="button"
         aria-label="Đóng upload"
         className="absolute inset-0 bg-slate-950/55 backdrop-blur-sm"
         onClick={onCancel}
       />
-      <div className="relative w-full max-w-sm rounded-[28px] bg-white p-5 shadow-[0_28px_80px_rgba(15,23,42,0.3)]">
+      <div className="relative w-full rounded-[28px] bg-white p-5 shadow-[0_28px_80px_rgba(15,23,42,0.3)]">
         <h2 className="mt-4 text-[18px] font-bold text-[#10233f]">
           {title}
         </h2>

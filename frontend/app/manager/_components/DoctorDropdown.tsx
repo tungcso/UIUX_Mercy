@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { UserCircle2, Settings2, LogOut, ChevronUp } from "lucide-react";
+import { UserCircle2, LogOut, ChevronUp } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 type ProfileForm = {
@@ -85,9 +85,9 @@ function writeLocalStorage<T>(key: string, value: T) {
 
 export default function DoctorDropdown() {
   const [open, setOpen] = useState(false);
-  const [openModal, setOpenModal] = useState<
-    null | "profile" | "settings" | "logout"
-  >(null);
+  const [openModal, setOpenModal] = useState<null | "profile" | "logout">(
+    null,
+  );
   const router = useRouter();
   const ref = useRef<HTMLDivElement | null>(null);
   const modalContentRef = useRef<HTMLDivElement | null>(null);
@@ -166,17 +166,7 @@ export default function DoctorDropdown() {
             Hồ sơ cá nhân
           </button>
 
-          <button
-            type="button"
-            className="mt-1 flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50 hover:text-slate-900"
-            onClick={() => {
-              setOpen(false);
-              setOpenModal("settings");
-            }}
-          >
-            <Settings2 className="h-4 w-4" />
-            Cài đặt
-          </button>
+          {/* Settings removed for manager view per request */}
 
           <button
             type="button"
@@ -196,9 +186,7 @@ export default function DoctorDropdown() {
         <ProfileModal onClose={() => setOpenModal(null)} />
       ) : null}
 
-      {openModal === "settings" ? (
-        <SettingsModal onClose={() => setOpenModal(null)} />
-      ) : null}
+      {/* Settings modal removed */}
 
       {openModal === "logout"
         ? createPortal(
@@ -416,63 +404,7 @@ function ProfileModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function SettingsModal({ onClose }: { onClose: () => void }) {
-  const [tab, setTab] = useState<"clinic" | "security" | "prefs">("clinic");
-
-  return createPortal(
-    <div className="fixed inset-0 z-9999 flex items-center justify-center p-4">
-      <div aria-hidden="true" className="absolute inset-0 bg-slate-950/45" />
-      <div className="relative z-10000 w-full max-w-4xl overflow-hidden rounded-xl bg-white p-0 text-slate-800 shadow-lg">
-        <div className="flex">
-          <aside className="w-72 border-r border-slate-100 bg-slate-50 p-4">
-            <div className="mb-4">
-              <div className="text-sm font-bold text-slate-900">
-                Cài đặt tài khoản
-              </div>
-              <div className="text-sm font-medium text-slate-600">
-                Quản lý thông tin & cấu hình phòng khám
-              </div>
-            </div>
-            <nav className="space-y-1">
-              <button
-                onClick={() => setTab("clinic")}
-                className={`w-full rounded-md px-3 py-2 text-left font-semibold ${tab === "clinic" ? "bg-white text-slate-900 shadow-sm" : "text-slate-700 hover:bg-slate-100"}`}
-              >
-                Cấu hình phòng khám
-              </button>
-              <button
-                onClick={() => setTab("security")}
-                className={`w-full rounded-md px-3 py-2 text-left font-semibold ${tab === "security" ? "bg-white text-slate-900 shadow-sm" : "text-slate-700 hover:bg-slate-100"}`}
-              >
-                Phân quyền & Bảo mật
-              </button>
-              <button
-                onClick={() => setTab("prefs")}
-                className={`w-full rounded-md px-3 py-2 text-left font-semibold ${tab === "prefs" ? "bg-white text-slate-900 shadow-sm" : "text-slate-700 hover:bg-slate-100"}`}
-              >
-                Tùy chọn hệ thống
-              </button>
-            </nav>
-          </aside>
-          <div className="flex-1 p-6">
-            {tab === "clinic" && <ClinicTab />}
-            {tab === "security" && <SecurityTab />}
-            {tab === "prefs" && <PrefsTab />}
-            <div className="mt-6 text-right">
-              <button
-                onClick={onClose}
-                className="mr-2 rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-800"
-              >
-                Đóng
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>,
-    document.body,
-  );
-}
+// Settings modal removed for manager view per request
 
 function ProfileTab() {
   const [editing, setEditing] = useState(false);
