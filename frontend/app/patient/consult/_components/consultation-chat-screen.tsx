@@ -70,6 +70,9 @@ function detectEmergency(text: string) {
   return dangerousSymptoms.some((keyword) => lowerText.includes(keyword));
 }
 
+// Fallback in-memory store in case localStorage is blocked/disabled by browser policies (e.g. Incognito mode)
+const memoryStoredCases: Record<string, ConsultCase> = {};
+
 function isPersistableConsultCase(caseId: string) {
   const defaultMockIds = [
     "headache-3d",
@@ -85,6 +88,9 @@ function isPersistableConsultCase(caseId: string) {
 }
 
 function persistOpenedConsultCase(consultCase: ConsultCase) {
+  // Always update memory cache first
+  memoryStoredCases[consultCase.id] = consultCase;
+
   if (typeof window === "undefined") return;
 
   try {
@@ -108,11 +114,15 @@ function readStoredConsultCase(caseId: string) {
   try {
     const raw = window.localStorage.getItem(storedConsultCasesKey);
     const storedCases = raw ? (JSON.parse(raw) as ConsultCase[]) : [];
-    if (!Array.isArray(storedCases)) return null;
-    return storedCases.find((caseItem) => caseItem.id === caseId) ?? null;
+    if (Array.isArray(storedCases)) {
+      const found = storedCases.find((caseItem) => caseItem.id === caseId);
+      if (found) return found;
+    }
   } catch {
-    return null;
+    // Ignore storage failures and fall back to in-memory store
   }
+
+  return memoryStoredCases[caseId] ?? null;
 }
 
 function buildEmergencyMessage(): ConsultMessage {
