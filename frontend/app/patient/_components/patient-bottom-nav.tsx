@@ -12,14 +12,14 @@ type NavItem = {
 };
 
 const navItems: NavItem[] = [
-  { href: "/patient", label: "Home", icon: House, exact: true },
-  { href: "/patient/consult", label: "Consultations", icon: MessageCircle },
+  { href: "/patient", label: "Trang chủ", icon: House, exact: true },
+  { href: "/patient/consult", label: "Tư vấn", icon: MessageCircle },
   {
     href: "/patient/appointments",
-    label: "Appointments",
+    label: "Lịch hẹn",
     icon: CalendarCheck2,
   },
-  { href: "/patient/profile", label: "Profile", icon: UserRound },
+  { href: "/patient/profile", label: "Hồ sơ", icon: UserRound },
 ];
 
 export default function PatientBottomNav() {

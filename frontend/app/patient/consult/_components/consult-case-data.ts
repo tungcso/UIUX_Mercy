@@ -51,12 +51,18 @@ export type ConsultCase = {
   severity: ConsultCaseSeverity;
   messages: ConsultMessage[];
   quickReplies: string[];
+  doctor?: {
+    id: string;
+    name: string;
+    specialty: string;
+    avatar: string;
+    eta?: string;
+  };
 };
 
 const emergencyActions: ConsultAction[] = [
   { label: "Gọi 115", value: "call-emergency", tone: "danger" },
   { label: "Kết nối bác sĩ", value: "connect-doctor", tone: "primary" },
-  { label: "AI hỗ trợ khẩn", value: "urgent-ai", tone: "danger" },
 ];
 
 const emergencyCase: ConsultCase = {
@@ -584,7 +590,7 @@ export function buildConsultCase(
   }
 
   const topic = options?.topic ? normalizeCaseTitle(options.topic) : "";
-  const mode = options?.emergency ? "emergency" : (options?.mode ?? "ai");
+  const mode = options?.mode ?? (options?.emergency ? "emergency" : "ai");
   const title = topic
     ? topic
     : mode === "doctor"
@@ -603,7 +609,7 @@ export function buildConsultCase(
   const typeLabel =
     mode === "doctor" ? "Bác sĩ" : mode === "emergency" ? "Khẩn cấp" : "AI";
   const severity: ConsultCaseSeverity =
-    mode === "emergency" ? "high" : topic ? "medium" : "low";
+    options?.emergency || mode === "emergency" ? "high" : topic ? "medium" : "low";
 
   return {
     id: caseId,
@@ -624,7 +630,7 @@ export function buildConsultCase(
     quickReplies:
       mode === "emergency"
         ? ["Hỗ trợ khẩn", "Kết nối bác sĩ", "Gọi cấp cứu"]
-      : ["<1 ngày", "1-3 ngày", ">3 ngày", "Gửi ảnh kết quả"],
+        : ["<1 ngày", "1-3 ngày", ">3 ngày", "Gửi ảnh kết quả"],
     messages: topic
       ? [
           {

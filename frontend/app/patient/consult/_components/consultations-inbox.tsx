@@ -396,6 +396,9 @@ export default function ConsultationsInbox() {
     const query = normalize(debouncedSearch);
 
     return sortedCases.filter((caseItem) => {
+      // Exclude doctor cases or cases with a doctor assigned from the main "Ca tư vấn" tab
+      if (caseItem.type === "doctor" || caseItem.doctor) return false;
+
       const statusBucket = getStatusBucket(caseItem);
       const matchesSearch =
         !query ||
@@ -414,6 +417,22 @@ export default function ConsultationsInbox() {
       return matchesSearch && matchesType && matchesStatus && matchesSeverity;
     });
   }, [debouncedSearch, filters, sortedCases]);
+
+  const doctorCases = useMemo(() => {
+    const query = normalize(debouncedSearch);
+    return sortedCases.filter((caseItem) => {
+      const isDocCase = caseItem.type === "doctor" || !!caseItem.doctor;
+      if (!isDocCase) return false;
+
+      const matchesSearch =
+        !query ||
+        normalize(caseItem.title).includes(query) ||
+        normalize(caseItem.status).includes(query) ||
+        caseItem.tag?.toLowerCase().includes(query);
+
+      return matchesSearch;
+    });
+  }, [debouncedSearch, sortedCases]);
 
   const emergencyExists = cases.some(
     (caseItem) => caseItem.severity === "high",
@@ -460,16 +479,40 @@ export default function ConsultationsInbox() {
   };
 
   const startInteractiveCall = (doctor: Doctor, type: OnlineConsultType) => {
-    setActiveCall({ doctor, type });
     if (type === "Chat") {
-      setChatMessages([
+      const caseId = `doctor-${Date.now()}`;
+      const newCase = buildConsultCase(caseId, {
+        mode: "doctor",
+        topic: `Tư vấn với ${doctor.name}`,
+      });
+      
+      newCase.doctor = {
+        id: doctor.id,
+        name: doctor.name,
+        specialty: doctor.specialty,
+        avatar: doctor.id === "doctor-nguyen-a" ? "👨‍⚕️" : doctor.id === "doctor-tran-b" ? "👩‍⚕️" : "👩🏾",
+      };
+      newCase.title = `Tư vấn với ${doctor.name}`;
+      newCase.subtitle = `${doctor.specialty} · Đang kết nối...`;
+      
+      newCase.messages = [
         {
-          sender: "doctor",
-          text: `Xin chào, tôi là ${doctor.name}, chuyên khoa ${doctor.specialty}. Rất vui được hỗ trợ tư vấn online cho bạn. Bạn đang gặp phải vấn đề gì?`,
+          id: `${caseId}-created`,
+          role: "system",
+          kind: "system",
+          text: `NEW → Đang kết nối. Yêu cầu tư vấn trực tuyến đã gửi đến ${doctor.name}.`,
           time: new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" }),
         }
-      ]);
+      ];
+
+      persistCreatedConsultCase(newCase);
+      setCases((current) => [newCase, ...current]);
+      setSheet(null);
+      router.push(`/patient/consult/${caseId}?mode=doctor`);
+      return;
     }
+
+    setActiveCall({ doctor, type });
     setSheet(null);
   };
 
@@ -751,28 +794,37 @@ export default function ConsultationsInbox() {
               </div>
 
               <DoctorSectionTitle icon={MessageCircle} title="Tư vấn online gần đây" className="mt-7" />
-              <div className="mt-3 grid gap-3">
-                {onlineConsults.map((item) => (
-                  <OnlineConsultRecord
-                    key={item.id}
-                    consult={item}
-                    onClick={() => {
-                      const doctor = doctorsList.find((d) => d.name === item.doctorName) ?? doctorsList[0];
-                      startInteractiveCall(doctor, item.type);
-                    }}
-                  />
-                ))}
+              <div className="mt-3 space-y-3">
+                {doctorCases.length > 0 ? (
+                  doctorCases.map((caseItem) => (
+                    <CaseCard
+                      key={caseItem.id}
+                      caseItem={caseItem}
+                      onPress={openCase}
+                      onLongPress={openActions}
+                      onDelete={deleteCase}
+                      onArchive={archiveCase}
+                      onBook={() => router.push("/patient/appointments")}
+                      onContactDoctor={() =>
+                        router.push(`/patient/consult/doctor-${Date.now()}?mode=doctor`)
+                      }
+                      pinned={pinnedCaseIds.includes(caseItem.id)}
+                    />
+                  ))
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-[#d8e7ef] bg-white/50 p-6 text-center text-sm text-[#64748b]">
+                    Chưa có cuộc tư vấn bác sĩ nào gần đây. Hãy chọn bác sĩ bên trên để bắt đầu kết nối.
+                  </div>
+                )}
               </div>
             </>
           )}
         </section>
         {/* Floating emergency FAB inside the rounded panel (mobile-friendly) */}
-        {activeTab === "cases" ? (
-          <EmergencyFAB
-            highlighted={false}
-            onClick={() => setSheet("emergency")}
-          />
-        ) : null}
+        <EmergencyFAB
+          highlighted={false}
+          onClick={() => setSheet("emergency")}
+        />
 
         {activeCall ? (
           <InteractiveCallOverlay
@@ -842,7 +894,6 @@ export default function ConsultationsInbox() {
             {sheet === "emergency" ? (
               <EmergencySheet
                 caseItem={selectedCase}
-                onUrgentAi={() => createCase("emergency", "Hỗ trợ khẩn")}
                 onConnectDoctor={() =>
                   router.push(`/patient/consult/doctor-${Date.now()}?mode=doctor&emergency=1`)
                 }
@@ -1726,17 +1777,17 @@ function FilterBottomSheet({
       <FilterGroup title="Loại tư vấn">
         <FilterPill
           active={draft.types.includes("ai")}
-          label="AI cases"
+          label="Ca tư vấn AI"
           onClick={() => toggle("types", "ai")}
         />
         <FilterPill
           active={draft.types.includes("doctor")}
-          label="Doctor cases"
+          label="Bác sĩ tư vấn"
           onClick={() => toggle("types", "doctor")}
         />
         <FilterPill
           active={draft.types.includes("emergency")}
-          label="Emergency cases"
+          label="Ca khẩn cấp"
           tone="danger"
           onClick={() => toggle("types", "emergency")}
         />
@@ -1768,18 +1819,18 @@ function FilterBottomSheet({
       <FilterGroup title="Mức độ">
         <FilterPill
           active={draft.severities.includes("low")}
-          label="Low"
+          label="Thấp"
           onClick={() => toggle("severities", "low")}
         />
         <FilterPill
           active={draft.severities.includes("medium")}
-          label="Medium"
+          label="Trung bình"
           tone="warning"
           onClick={() => toggle("severities", "medium")}
         />
         <FilterPill
           active={draft.severities.includes("high")}
-          label="High"
+          label="Cao"
           tone="danger"
           onClick={() => toggle("severities", "high")}
         />
@@ -1790,14 +1841,14 @@ function FilterBottomSheet({
           onClick={() => onApply(draft)}
           className="min-h-11 flex-1 rounded-2xl bg-[#16a34a] text-sm font-semibold text-white"
         >
-          Apply
+          Áp dụng
         </button>
         <button
           type="button"
           onClick={onReset}
           className="min-h-11 rounded-2xl border border-[#d8e7ef] bg-white px-5 text-sm font-semibold text-[#334155]"
         >
-          Reset
+          Đặt lại
         </button>
       </div>
     </div>
@@ -1903,10 +1954,10 @@ function NewCaseSheet({
           ))}
           <ChoiceButton
             icon={AlertTriangle}
-            title="Emergency case"
+            title="Ca khẩn cấp"
             subtitle="Ưu tiên hỗ trợ khẩn"
             danger
-            onClick={() => onCreate("emergency", "Emergency case")}
+            onClick={() => onCreate("emergency", "Ca khẩn cấp")}
           />
         </div>
       </div>
@@ -2133,13 +2184,11 @@ function CaseDetailsSheet({
 
 function EmergencySheet({
   caseItem,
-  onUrgentAi,
   onConnectDoctor,
   onCall,
   onOpenChat,
 }: {
   caseItem: ConsultCase | null;
-  onUrgentAi: () => void;
   onConnectDoctor: () => void;
   onCall: () => void;
   onOpenChat: () => void;
@@ -2147,7 +2196,7 @@ function EmergencySheet({
   return (
     <div className="pr-9">
       <SheetTitle
-        eyebrow="Emergency support"
+        eyebrow="Hỗ trợ khẩn cấp"
         title={caseItem ? caseItem.title : "Hỗ trợ khẩn"}
         danger
       />
@@ -2164,19 +2213,13 @@ function EmergencySheet({
           />
         ) : null}
         <ActionButton
-          icon={Bot}
-          label="AI urgent help"
-          onClick={onUrgentAi}
-          danger
-        />
-        <ActionButton
           icon={Stethoscope}
-          label="Connect doctor"
+          label="Kết nối bác sĩ"
           onClick={onConnectDoctor}
         />
         <ActionButton
           icon={PhoneCall}
-          label="Call emergency 115"
+          label="Gọi cấp cứu 115"
           onClick={onCall}
           danger
         />
@@ -2219,14 +2262,14 @@ function BottomSheet({
   onClose: () => void;
 }) {
   return (
-    <div className="absolute inset-0 z-50 flex items-end justify-center px-3 pb-3">
+    <div className="fixed inset-0 z-50 flex items-end justify-center px-3 pb-[calc(12px+env(safe-area-inset-bottom))]">
       <button
         type="button"
         aria-label="Đóng"
         className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative max-h-[88vh] w-full overflow-y-auto rounded-[28px] bg-white p-4 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
+      <div className="relative max-h-[88vh] w-full max-w-97.5 overflow-y-auto rounded-[28px] bg-white p-5 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
         <button
           type="button"
           aria-label="Đóng"
