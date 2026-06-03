@@ -646,8 +646,8 @@ export default function ConsultationsInbox() {
   };
 
   return (
-    <main className="relative flex h-full min-h-0 bg-[#edf6fb] px-2 py-2 sm:px-4 sm:py-5">
-      <div className="relative mx-auto flex h-full min-h-0 w-full max-w-97.5 flex-col overflow-hidden rounded-3xl border border-[#dbeaf1] bg-[#f8fbfd] shadow-[0_18px_48px_rgba(15,23,42,0.12)]">
+    <main className="relative flex h-full min-h-0 bg-[#e2f1e8] px-2 py-2 sm:px-4 sm:py-5">
+      <div className="relative mx-auto flex h-full min-h-0 w-full max-w-97.5 flex-col overflow-hidden rounded-3xl border border-[#d2eadb] bg-[#f5fbf7] shadow-[0_18px_48px_rgba(15,23,42,0.12)]">
         <Header
           activeTab={activeTab}
           onTabChange={setActiveTab}
@@ -1350,7 +1350,7 @@ function DoctorDirectorySheet({
                 <button
                   type="button"
                   onClick={() => onAction(doctor, "Video call")}
-                  className="w-full min-h-11 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition active:scale-[0.98]"
+                  className="w-full min-h-11 rounded-xl bg-[#16a34a] hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition active:scale-[0.98]"
                 >
                   <Video className="h-4.5 w-4.5" /> Bắt đầu Video call
                 </button>
@@ -1619,7 +1619,7 @@ const CaseCard = memo(function CaseCard({
           <button
             type="button"
             onClick={() => onPress(caseItem)}
-            className="min-h-11 rounded-2xl bg-[#0ea5a4] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+            className="min-h-11 rounded-2xl bg-[#16a34a] hover:bg-emerald-700 px-4 py-2 text-sm font-semibold text-white shadow-sm transition active:scale-[0.98]"
           >
             💬 Tiếp tục tư vấn
           </button>
@@ -2244,9 +2244,9 @@ function EmergencyFAB({
       className={`emergency-fab-motion absolute right-6 bottom-6 sm:bottom-8 sm:right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-[0_12px_26px_rgba(220,38,38,0.18)] transition ${
         highlighted ? "animate-pulse bg-[#dc2626]" : "bg-[#fb923c]"
       }`}
-      // raised by additional 6px above safe-area/footer
+      // raised by additional 24px above safe-area/footer to prevent overlaps
       style={{
-        bottom: "calc(env(safe-area-inset-bottom, 6px) + 3rem - 2px)",
+        bottom: "calc(env(safe-area-inset-bottom, 6px) + 4.5rem)",
       }}
     >
       <AlertTriangle className="h-6 w-6" />
@@ -2502,7 +2502,7 @@ function InteractiveCallOverlay({
 
   if (call.type === "Chat") {
     return (
-      <div className="absolute inset-0 z-50 flex flex-col bg-[#edf6fb]">
+      <div className="absolute inset-0 z-50 flex flex-col bg-[#e2f1e8]">
         {/* Chat Header */}
         <div className="flex items-center gap-3 border-b border-[#e3edf3] bg-white px-4 py-3 shadow-sm">
           <button

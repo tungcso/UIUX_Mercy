@@ -1130,7 +1130,10 @@ export default function ConsultationChatScreen({
     }
 
     if (action.value === "book") {
-      router.push("/patient/appointments");
+      const specialty = consultCase.doctor?.specialty || getSpecialtyFromCase(consultCase);
+      const doctorName = consultCase.doctor?.name;
+      const url = `/patient/appointments?specialty=${encodeURIComponent(specialty)}${doctorName ? `&doctorName=${encodeURIComponent(doctorName)}` : ""}&fromAi=1`;
+      router.push(url);
       return;
     }
 
@@ -1236,8 +1239,8 @@ export default function ConsultationChatScreen({
   };
 
   return (
-    <main className="relative flex h-full min-h-0 bg-[#edf6fb] px-2 py-2 sm:px-4 sm:py-5">
-      <div className="relative mx-auto flex h-full min-h-0 w-full max-w-97.5 flex-col overflow-hidden rounded-3xl border border-[#dbeaf1] bg-[#f8fbfd] shadow-[0_18px_48px_rgba(15,23,42,0.12)]">
+    <main className="relative flex h-full min-h-0 bg-[#e2f1e8] px-2 py-2 sm:px-4 sm:py-5">
+      <div className="relative mx-auto flex h-full min-h-0 w-full max-w-97.5 flex-col overflow-hidden rounded-3xl border border-[#d2eadb] bg-[#f5fbf7] shadow-[0_18px_48px_rgba(15,23,42,0.12)]">
         <ChatHeader
           title={activeCase.doctor ? activeCase.doctor.name : activeCase.title}
           subtitle={activeCase.doctor ? `${activeCase.doctor.specialty} · Đang trực tuyến` : subtitle}
@@ -1258,7 +1261,7 @@ export default function ConsultationChatScreen({
         ) : null}
 
         {isConnecting ? (
-          <div className="flex flex-1 flex-col items-center justify-center bg-gradient-to-b from-[#f8fbfd] to-[#edf6fb] px-6 py-12 text-center relative overflow-hidden">
+          <div className="flex flex-1 flex-col items-center justify-center bg-gradient-to-b from-[#f5fbf7] to-[#e2f1e8] px-6 py-12 text-center relative overflow-hidden">
             {/* Pulsing Concentric Rings */}
             <div className="relative flex h-48 w-48 items-center justify-center">
               <div className="absolute h-40 w-40 rounded-full border border-[#16a34a]/10 bg-[#16a34a]/5 radar-pulse-3" />
@@ -1350,7 +1353,12 @@ export default function ConsultationChatScreen({
             onMedicine={() => {
               setDraft("Tôi muốn hỏi về thuốc đang dùng");
             }}
-            onBookDoctor={() => router.push("/patient/appointments")}
+            onBookDoctor={() => {
+              const specialty = consultCase.doctor?.specialty || getSpecialtyFromCase(consultCase);
+              const doctorName = consultCase.doctor?.name;
+              const url = `/patient/appointments?specialty=${encodeURIComponent(specialty)}${doctorName ? `&doctorName=${encodeURIComponent(doctorName)}` : ""}&fromAi=1`;
+              router.push(url);
+            }}
             onEmergency={() => setSheet("emergency")}
             isSending={isSending}
             isAiLoading={aiPhase !== null || isDoctorTyping}
