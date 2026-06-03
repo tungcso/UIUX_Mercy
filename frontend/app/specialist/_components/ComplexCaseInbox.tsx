@@ -683,18 +683,18 @@ export default function ComplexCaseInbox() {
             <div className="mt-5 flex gap-3">
               <button
                 type="button"
+                onClick={() => setHandoffId(null)}
+                className="flex-1 rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
                 onClick={() => handleHandoff(handoffId)}
                 className="flex-1 rounded-xl bg-rose-600 py-3 text-sm font-bold text-white shadow-md shadow-rose-500/25 transition-all hover:bg-rose-700"
               >
                 <CheckCircle2 className="mr-2 inline h-4 w-4" />
                 Xác nhận chuyển giao
-              </button>
-              <button
-                type="button"
-                onClick={() => setHandoffId(null)}
-                className="flex-1 rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50"
-              >
-                Hủy
               </button>
             </div>
           </div>
@@ -732,18 +732,18 @@ export default function ComplexCaseInbox() {
             <div className="mt-5 flex gap-3">
               <button
                 type="button"
+                onClick={() => setAcceptId(null)}
+                className="flex-1 rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
                 onClick={() => handleAccept(acceptId)}
                 className="flex-1 rounded-xl bg-blue-600 py-3 text-sm font-bold text-white shadow-md shadow-blue-500/25 transition-all hover:bg-blue-700"
               >
                 <CheckCircle2 className="mr-2 inline h-4 w-4" />
                 Xác nhận tiếp nhận
-              </button>
-              <button
-                type="button"
-                onClick={() => setAcceptId(null)}
-                className="flex-1 rounded-xl border border-slate-200 bg-white py-3 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50"
-              >
-                Hủy
               </button>
             </div>
           </div>
