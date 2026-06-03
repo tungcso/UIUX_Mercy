@@ -8,7 +8,7 @@ export default async function ConsultationCasePage({
   params,
   searchParams,
 }: {
-  params: Promise<{ caseid: string }>;
+  params: Promise<{ caseId?: string; caseid?: string }>;
   searchParams?: Promise<{
     topic?: string;
     mode?: string;
@@ -18,6 +18,8 @@ export default async function ConsultationCasePage({
 }) {
   const resolvedParams = await params;
   const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const caseId = resolvedParams.caseId || resolvedParams.caseid || "new";
+
   const reviewCase =
     consultCases.find((item) => item.id === "follow-up-meds") ??
     consultCases[0];
@@ -25,7 +27,7 @@ export default async function ConsultationCasePage({
   const consultCase =
     resolvedSearchParams?.review === "1"
       ? reviewCase
-      : buildConsultCase(resolvedParams.caseid, {
+      : buildConsultCase(caseId, {
           topic: resolvedSearchParams?.topic,
           mode:
             resolvedSearchParams?.mode === "doctor"
