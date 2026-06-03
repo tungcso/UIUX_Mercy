@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -18,6 +18,16 @@ import {
 type ActionType = "knowledge" | "monitoring" | null;
 
 const baseProductivitySeries = [62, 68, 71, 73, 76, 78, 81];
+
+const generateRandomProductivitySeries = () => {
+  const t7Height = 81;
+  const minHeight = Math.ceil(t7Height / 2); // 40.5 → 41
+  const maxHeight = t7Height - 1; // 80
+  const randomValues = Array.from({ length: 6 }, () =>
+    Math.floor(Math.random() * (maxHeight - minHeight + 1) + minHeight),
+  );
+  return [...randomValues, t7Height];
+};
 
 const baseIncidentFeed = [
   {
@@ -118,9 +128,26 @@ function formatPercent(value: number) {
 export default function ChatbotOperationsDashboard() {
   const [currentScore, setCurrentScore] = useState(91);
   const [targetScore] = useState(95);
-  const [productivitySeries, setProductivitySeries] = useState(
-    baseProductivitySeries,
-  );
+  const [productivitySeries, setProductivitySeries] = useState<number[]>([]);
+  const STORAGE_KEY = "chatbot:productivitySeries";
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as number[];
+        if (Array.isArray(parsed) && parsed.length === 7) {
+          setProductivitySeries(parsed);
+          return;
+        }
+      }
+    } catch (e) {
+      // ignore and re-generate
+    }
+    const series = generateRandomProductivitySeries();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(series));
+    setProductivitySeries(series);
+  }, []);
   const [healthItems, setHealthItems] = useState(baseHealthItems);
   const [lastRefreshedAt, setLastRefreshedAt] = useState("Chưa làm mới");
   const [monitoringEnabled, setMonitoringEnabled] = useState(true);
@@ -130,10 +157,8 @@ export default function ChatbotOperationsDashboard() {
   const incidentFeed = baseIncidentFeed;
 
   const handleRefresh = () => {
-    const nextSeries = productivitySeries.map((value, index) => {
-      const drift = index % 2 === 0 ? 2 : -1;
-      return Math.max(45, Math.min(98, value + drift));
-    });
+    // regenerate a fresh random series on refresh (keep initial randomized until refresh)
+    const nextSeries = generateRandomProductivitySeries();
 
     const nextCurrentScore = Math.min(100, currentScore + 1);
     const selfServiceValue = Math.min(
@@ -157,6 +182,11 @@ export default function ChatbotOperationsDashboard() {
     );
 
     setProductivitySeries(nextSeries);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextSeries));
+    } catch (e) {
+      // ignore storage errors
+    }
     setCurrentScore(nextCurrentScore);
     setHealthItems([
       {
@@ -319,14 +349,19 @@ export default function ChatbotOperationsDashboard() {
                 </div>
               </div>
 
-              <div className="mt-6 flex h-44 items-end gap-3">
+              <div className="mt-6 flex h-44 items-end justify-center gap-4">
                 {productivitySeries.map((value, index) => (
                   <div
                     key={`productivity-bar-${index}`}
-                    className="flex flex-1 flex-col items-center gap-2"
+                    className="flex h-full flex-col items-center justify-end gap-2"
+                    style={{ width: "calc(66.666% / 7)" }}
                   >
                     <div
-                      className="w-full rounded-t-2xl bg-linear-to-t from-blue-600 via-sky-500 to-cyan-300 shadow-[0_12px_24px_rgba(37,99,235,0.18)]"
+                      className={`w-full ${
+                        index === productivitySeries.length - 1
+                          ? "bg-blue-600 shadow-[0_12px_24px_rgba(37,99,235,0.18)]"
+                          : "bg-blue-200"
+                      }`}
                       style={{ height: `${value}%` }}
                     />
                     <span className="text-[11px] font-semibold text-slate-400">
