@@ -97,6 +97,13 @@ function persistOpenedConsultCase(consultCase: ConsultCase) {
     const raw = window.localStorage.getItem(storedConsultCasesKey);
     const storedCases = raw ? (JSON.parse(raw) as ConsultCase[]) : [];
     const safeStoredCases = Array.isArray(storedCases) ? storedCases : [];
+
+    // Safeguard: Check if the case in localStorage has more history than what we are trying to save!
+    const existingCase = safeStoredCases.find((c) => c.id === consultCase.id);
+    if (existingCase && existingCase.messages.length > consultCase.messages.length) {
+      return;
+    }
+
     const nextCases = [
       consultCase,
       ...safeStoredCases.filter((caseItem) => caseItem.id !== consultCase.id),
@@ -956,7 +963,8 @@ export default function ConsultationChatScreen({
     setMessages(storedCase.messages);
     setEmergencyActive(storedCase.severity === "high");
     setStorageChecked(true);
-  }, [consultCase]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [consultCase.id]);
 
   useEffect(() => {
     if (activeCase.type === "doctor" && activeCase.status === "Đang đánh giá" && !readOnly) {
@@ -1257,6 +1265,17 @@ export default function ConsultationChatScreen({
     persistOpenedConsultCase(completedCase);
     showToast("Đã đánh dấu ca tư vấn là hoàn thành");
   };
+
+  if (!storageChecked) {
+    return (
+      <main className="relative flex h-full min-h-0 bg-[#e2f1e8] px-2 py-2 sm:px-4 sm:py-5">
+        <div className="relative mx-auto flex h-full min-h-0 w-full max-w-97.5 flex-col items-center justify-center rounded-3xl border border-[#d2eadb] bg-[#f5fbf7] shadow-[0_18px_48px_rgba(15,23,42,0.12)]">
+          <Loader2 className="h-8 w-8 animate-spin text-[#16a34a]" />
+          <p className="mt-2 text-sm text-[#64748b]">Đang tải cuộc trò chuyện...</p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="relative flex h-full min-h-0 bg-[#e2f1e8] px-2 py-2 sm:px-4 sm:py-5">
