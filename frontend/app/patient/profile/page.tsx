@@ -132,6 +132,7 @@ export default function PatientProfilePage() {
     reexam: true,
     followup: true,
   });
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(true);
   const noticeTimerRef = useRef<number | null>(null);
   const avatarInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -157,6 +158,42 @@ export default function PatientProfilePage() {
     setNotice(msg);
     noticeTimerRef.current = window.setTimeout(() => setNotice(null), 2400);
   };
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const savedTwoFactor = localStorage.getItem("twoFactorEnabled");
+      if (savedTwoFactor !== null) {
+        setTwoFactorEnabled(savedTwoFactor === "true");
+      }
+
+      const savedAiToggles = localStorage.getItem("aiToggles");
+      if (savedAiToggles !== null) {
+        try {
+          setAiToggles(JSON.parse(savedAiToggles));
+        } catch (e) {
+          console.error("Failed to parse aiToggles", e);
+        }
+      }
+
+      const savedName = localStorage.getItem("profileName");
+      if (savedName !== null) setProfileName(savedName);
+
+      const savedPhone = localStorage.getItem("profilePhone");
+      if (savedPhone !== null) setProfilePhone(savedPhone);
+
+      const savedDob = localStorage.getItem("profileDob");
+      if (savedDob !== null) setProfileDob(savedDob);
+
+      const savedAddress = localStorage.getItem("profileAddress");
+      if (savedAddress !== null) setProfileAddress(savedAddress);
+
+      const savedEmergency = localStorage.getItem("profileEmergency");
+      if (savedEmergency !== null) setProfileEmergency(savedEmergency);
+
+      const savedGender = localStorage.getItem("profileGender");
+      if (savedGender !== null) setProfileGender(savedGender);
+    }
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -461,7 +498,11 @@ export default function PatientProfilePage() {
                     <p className={`text-[15px] font-semibold ${item.danger ? "text-[#dc2626]" : "text-[#1f2939]"}`}>
                       {item.label}
                     </p>
-                    <p className="text-[12px] text-[#6b7280]">{item.desc}</p>
+                    <p className="text-[12px] text-[#6b7280]">
+                      {item.label === "Xác thực 2 lớp"
+                        ? (twoFactorEnabled ? "Đã bật · qua SMS" : "Đã tắt")
+                        : item.desc}
+                    </p>
                   </div>
                   <ChevronRight className="h-4.5 w-4.5 shrink-0 text-[#94a3b8]" />
                 </button>
@@ -486,7 +527,11 @@ export default function PatientProfilePage() {
                 <Toggle
                   enabled={aiToggles[setting.key] ?? true}
                   onChange={(val) =>
-                    setAiToggles((prev) => ({ ...prev, [setting.key]: val }))
+                    setAiToggles((prev) => {
+                      const next = { ...prev, [setting.key]: val };
+                      localStorage.setItem("aiToggles", JSON.stringify(next));
+                      return next;
+                    })
                   }
                 />
               </div>
@@ -532,6 +577,14 @@ export default function PatientProfilePage() {
                   setProfileAddress(updated.address);
                   setProfileEmergency(updated.emergency);
                   setProfileGender(updated.gender);
+                  
+                  localStorage.setItem("profileName", updated.name);
+                  localStorage.setItem("profilePhone", updated.phone);
+                  localStorage.setItem("profileDob", updated.dob);
+                  localStorage.setItem("profileAddress", updated.address);
+                  localStorage.setItem("profileEmergency", updated.emergency);
+                  localStorage.setItem("profileGender", updated.gender);
+
                   setActiveSheet(null);
                   showNotice("Đã lưu thông tin cá nhân.");
                 }}
@@ -550,13 +603,29 @@ export default function PatientProfilePage() {
               <FamilySheet onClose={() => setActiveSheet(null)} onAdd={() => showNotice("Đã thêm thành viên gia đình (mô phỏng).")} />
             )}
             {activeSheet === "security" && (
-              <SecuritySheet onClose={() => setActiveSheet(null)} onAction={(msg) => { setActiveSheet(null); showNotice(msg); }} />
+              <SecuritySheet
+                onClose={() => setActiveSheet(null)}
+                twoFactorEnabled={twoFactorEnabled}
+                onAction={(msg) => { setActiveSheet(null); showNotice(msg); }}
+              />
             )}
             {activeSheet === "change-password" && (
               <ChangePasswordSheet onClose={() => setActiveSheet(null)} onSave={() => { setActiveSheet(null); showNotice("Đã thay đổi mật khẩu thành công."); }} />
             )}
             {activeSheet === "two-factor" && (
-              <TwoFactorSheet onClose={() => setActiveSheet(null)} phone={profilePhone} onSave={() => { setActiveSheet(null); showNotice("Đã cập nhật cài đặt xác thực 2 lớp."); }} />
+              <TwoFactorSheet
+                onClose={() => setActiveSheet(null)}
+                phone={profilePhone}
+                initialEnabled={twoFactorEnabled}
+                onSave={(enabled, phone) => {
+                  setTwoFactorEnabled(enabled);
+                  setProfilePhone(phone);
+                  localStorage.setItem("twoFactorEnabled", String(enabled));
+                  localStorage.setItem("profilePhone", phone);
+                  setActiveSheet(null);
+                  showNotice("Đã cập nhật cài đặt xác thực 2 lớp.");
+                }}
+              />
             )}
             {activeSheet === "devices" && (
               <DevicesSheet onClose={() => setActiveSheet(null)} onLogoutDevice={(name) => showNotice(`Đã đăng xuất khỏi ${name}`)} />
@@ -570,7 +639,13 @@ export default function PatientProfilePage() {
             {activeSheet === "ai-settings" && (
               <AISettingsSheet
                 toggles={aiToggles}
-                onChange={(key, val) => setAiToggles((prev) => ({ ...prev, [key]: val }))}
+                onChange={(key, val) =>
+                  setAiToggles((prev) => {
+                    const next = { ...prev, [key]: val };
+                    localStorage.setItem("aiToggles", JSON.stringify(next));
+                    return next;
+                  })
+                }
                 onClose={() => { setActiveSheet(null); showNotice("Đã lưu cài đặt trợ lý AI."); }}
               />
             )}
@@ -656,14 +731,14 @@ function Toggle({ enabled, onChange }: { enabled: boolean; onChange: (v: boolean
 
 function BottomSheet({ children, onClose }: { children: ReactNode; onClose: () => void }) {
   return (
-    <div className="absolute inset-0 z-50 flex items-end justify-center px-3 pb-3">
+    <div className="fixed inset-0 z-50 flex items-end justify-center px-3 pb-[calc(12px+env(safe-area-inset-bottom))]">
       <button
         type="button"
         aria-label="Đóng"
         className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative w-full overflow-hidden rounded-[28px] bg-white shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
+      <div className="relative max-h-[85dvh] w-full max-w-97.5 overflow-y-auto rounded-[28px] bg-white shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
         {children}
       </div>
     </div>
@@ -898,8 +973,18 @@ function ChangePasswordSheet({ onClose, onSave }: { onClose: () => void; onSave:
 }
 
 // Two Factor sheet
-function TwoFactorSheet({ onClose, phone, onSave }: { onClose: () => void; phone: string; onSave: () => void }) {
-  const [isEnabled, setIsEnabled] = useState(true);
+function TwoFactorSheet({
+  onClose,
+  phone,
+  initialEnabled,
+  onSave,
+}: {
+  onClose: () => void;
+  phone: string;
+  initialEnabled: boolean;
+  onSave: (enabled: boolean, phone: string) => void;
+}) {
+  const [isEnabled, setIsEnabled] = useState(initialEnabled);
   const [otpPhone, setOtpPhone] = useState(phone);
 
   return (
@@ -930,7 +1015,11 @@ function TwoFactorSheet({ onClose, phone, onSave }: { onClose: () => void; phone
           <button type="button" onClick={onClose} className="flex-1 rounded-2xl border border-[#d8eadf] py-3 text-[14px] font-medium text-[#6b7280] cursor-pointer">
             Huỷ
           </button>
-          <button type="button" onClick={onSave} className="flex-1 rounded-2xl bg-[#16a34a] py-3 text-[14px] font-semibold text-white cursor-pointer hover:bg-emerald-700 transition">
+          <button
+            type="button"
+            onClick={() => onSave(isEnabled, otpPhone)}
+            className="flex-1 rounded-2xl bg-[#16a34a] py-3 text-[14px] font-semibold text-white cursor-pointer hover:bg-emerald-700 transition"
+          >
             Lưu cài đặt
           </button>
         </div>
@@ -1219,7 +1308,15 @@ function FamilySheet({ onClose, onAdd }: { onClose: () => void; onAdd: () => voi
 }
 
 // Security sheet
-function SecuritySheet({ onClose, onAction }: { onClose: () => void; onAction: (msg: string) => void }) {
+function SecuritySheet({
+  onClose,
+  twoFactorEnabled,
+  onAction,
+}: {
+  onClose: () => void;
+  twoFactorEnabled: boolean;
+  onAction: (msg: string) => void;
+}) {
   return (
     <>
       <SheetHeader label="Bảo mật" title="Quản lý bảo mật tài khoản" onClose={onClose} />
@@ -1239,7 +1336,11 @@ function SecuritySheet({ onClose, onAction }: { onClose: () => void; onAction: (
                 </div>
                 <div className="flex-1">
                   <p className="text-[14px] font-semibold text-[#1f2939]">{item.label}</p>
-                  <p className="text-[12px] text-[#6b7280]">{item.desc}</p>
+                  <p className="text-[12px] text-[#6b7280]">
+                    {item.label === "Xác thực 2 lớp"
+                      ? (twoFactorEnabled ? "Đã bật · qua SMS" : "Đã tắt")
+                      : item.desc}
+                  </p>
                 </div>
                 <ChevronRight className="h-4 w-4 text-[#94a3b8]" />
               </button>

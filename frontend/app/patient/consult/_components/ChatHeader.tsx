@@ -5,7 +5,7 @@ import { ArrowLeft, Stethoscope } from "lucide-react";
 export default function ChatHeader({
   title = "Tư vấn sức khỏe",
   subtitle = "AI sẵn sàng hỗ trợ",
-  status = "AI Active",
+  status = "AI hoạt động",
   emergency = false,
   onBack,
   onTitleClick,

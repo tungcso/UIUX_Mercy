@@ -2422,14 +2422,14 @@ function BottomSheet({
   onClose: () => void;
 }) {
   return (
-    <div className="absolute inset-0 z-50 flex items-end justify-center px-3 pb-3">
+    <div className="fixed inset-0 z-50 flex items-end justify-center px-3 pb-[calc(12px+env(safe-area-inset-bottom))]">
       <button
         type="button"
         aria-label="Đóng"
         className="absolute inset-0 bg-slate-950/45 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative max-h-[88vh] w-full overflow-y-auto rounded-[28px] bg-white p-4 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
+      <div className="relative max-h-[85dvh] w-full max-w-97.5 overflow-y-auto rounded-[28px] bg-white p-4 shadow-[0_28px_80px_rgba(15,23,42,0.28)]">
         <button
           type="button"
           aria-label="Đóng"
