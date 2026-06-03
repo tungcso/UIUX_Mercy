@@ -52,7 +52,7 @@ export default function InputBar({
         </div>
       ) : null}
 
-      <div className="mb-2 flex gap-2 overflow-x-auto pb-1">
+      <div className="mb-2 flex gap-2 overflow-x-auto pb-1 scrollbar-none">
         <QuickAction icon={ImageIcon} label="Gửi ảnh" onClick={onAttach} />
         <QuickAction icon={FileText} label="Tải xét nghiệm" onClick={onLab} />
         <QuickAction icon={Pill} label="Thuốc đang dùng" onClick={onMedicine} />

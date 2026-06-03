@@ -7,7 +7,9 @@ import {
   useSyncExternalStore,
   type ComponentType,
   type ReactNode,
+  Suspense,
 } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Bot,
   CalendarCheck2,
@@ -323,18 +325,28 @@ function recommendationFromEmergencyCase(caseItem: ConsultCase): Recommendation 
 
 function doctorsForSpecialty(specialty: string | null) {
   const matched = bookingDoctors.filter(
-    (doctor) => !specialty || doctor.specialty === specialty,
+    (doctor) => !specialty || specialty === "Khác" || doctor.specialty === specialty,
   );
   return matched.length > 0 ? matched : bookingDoctors.slice(0, 2);
 }
 
 export default function PatientAppointmentsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#e2f1e8] flex items-center justify-center text-slate-800 font-sans">Đang tải...</div>}>
+      <PatientAppointmentsContent />
+    </Suspense>
+  );
+}
+
+function PatientAppointmentsContent() {
   const [appointments, setAppointments] =
     useState<Appointment[]>(initialAppointments);
   const [sheet, setSheet] = useState<Sheet>(null);
   const [bookingSpecialty, setBookingSpecialty] = useState<string | null>(null);
   const [bookingMode, setBookingMode] = useState<AppointmentMode>("Online");
   const [bookingFromAi, setBookingFromAi] = useState(false);
+  const [bookingStep, setBookingStep] = useState(1);
+  const [isPreselected, setIsPreselected] = useState(false);
   const [selectedDoctorId, setSelectedDoctorId] = useState<string | null>(null);
   const [careStatus, setCareStatus] = useState<string | null>(null);
   const [confirmedCareStatus, setConfirmedCareStatus] = useState<string | null>(
@@ -382,6 +394,27 @@ export default function PatientAppointmentsPage() {
     },
   ]);
   const [chatInput, setChatInput] = useState("");
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const specialty = searchParams.get("specialty");
+    const doctorName = searchParams.get("doctorName");
+    const fromAi = searchParams.get("fromAi") === "1";
+
+    if (specialty) {
+      const suggestedDoctor = doctorName
+        ? bookingDoctors.find((doctor) => doctor.name === doctorName)
+        : bookingDoctors.find((doctor) => doctor.specialty === specialty);
+
+      setBookingSpecialty(specialty);
+      setSelectedDoctorId(suggestedDoctor?.id ?? null);
+      setBookingMode("Online");
+      setBookingFromAi(fromAi);
+      setIsPreselected(true);
+      setBookingStep(2);
+      setSheet("booking");
+    }
+  }, [searchParams]);
 
   const storedCasesSnapshot = useSyncExternalStore(
     subscribeStoredConsultCases,
@@ -429,6 +462,11 @@ export default function PatientAppointmentsPage() {
     setSelectedDoctorId(suggestedDoctor?.id ?? null);
     setBookingMode("Online");
     setBookingFromAi(Boolean(specialty && !doctorName));
+    
+    const preselected = Boolean(specialty);
+    setIsPreselected(preselected);
+    setBookingStep(preselected ? 2 : 1);
+    
     setSheet("booking");
   };
 
@@ -456,19 +494,13 @@ export default function PatientAppointmentsPage() {
           `Thời gian: ${customFields.date} lúc ${customFields.time}`,
         ],
         risk: customFields.specialty === "Tim mạch" ? "Trung bình" : "Thấp",
-        status: customFields.mode === "Online" ? "pending-payment" : "upcoming",
+        status: "pending-payment",
         facility: customFields.facility,
-        fee: customFields.fee,
+        fee: customFields.fee ?? "150.000đ",
       };
       setAppointments((current) => [nextAppointment, ...current]);
-      
-      if (customFields.mode === "Online") {
-        setSelectedAppointment(nextAppointment);
-        setSheet("payment");
-      } else {
-        setSheet(null);
-        showToast("Đã đặt lịch khám thành công!");
-      }
+      setSelectedAppointment(nextAppointment);
+      setSheet("payment");
     } else {
       const specialty = bookingSpecialty ?? "Nội tổng quát";
       const doctor =
@@ -488,18 +520,12 @@ export default function PatientAppointmentsPage() {
           "Ngày gần nhất: 24/07 - 14:30",
         ],
         risk: specialty === "Tim mạch" ? "Trung bình" : "Thấp",
-        status: bookingMode === "Online" ? "pending-payment" : "upcoming",
-        fee: bookingMode === "Online" ? doctor.fee ?? "150.000đ" : undefined,
+        status: "pending-payment",
+        fee: doctor.fee ?? "150.000đ",
       };
       setAppointments((current) => [nextAppointment, ...current]);
-      
-      if (bookingMode === "Online") {
-        setSelectedAppointment(nextAppointment);
-        setSheet("payment");
-      } else {
-        setSheet(null);
-        showToast("Đã đặt lịch khám thành công!");
-      }
+      setSelectedAppointment(nextAppointment);
+      setSheet("payment");
     }
   };
 
@@ -794,6 +820,8 @@ export default function PatientAppointmentsPage() {
                     setSelectedDoctorId("doctor-nguyen-a");
                     setBookingMode("Online");
                     setBookingFromAi(true);
+                    setIsPreselected(true);
+                    setBookingStep(2);
                     setSheet("booking");
                   }}
                   onExplain={() => {
@@ -1202,6 +1230,9 @@ export default function PatientAppointmentsPage() {
         {sheet === "booking" ? (
           <BottomSheet onClose={() => setSheet(null)}>
             <BookingSheet
+              isPreselected={isPreselected}
+              step={bookingStep}
+              setStep={setBookingStep}
               specialty={bookingSpecialty}
               mode={bookingMode}
               fromAi={bookingFromAi}
@@ -1225,6 +1256,8 @@ export default function PatientAppointmentsPage() {
               onSelect={(specialty) => {
                 setBookingSpecialty(specialty);
                 setSelectedDoctorId(doctorsForSpecialty(specialty)[0]?.id ?? null);
+                setIsPreselected(false);
+                setBookingStep(2);
                 setSheet("booking");
               }}
             />
@@ -1240,6 +1273,8 @@ export default function PatientAppointmentsPage() {
                 setSelectedDoctorId("doctor-nguyen-a");
                 setBookingMode("Online");
                 setBookingFromAi(true);
+                setIsPreselected(true);
+                setBookingStep(2);
                 setSheet("booking");
               }}
             />
@@ -1391,7 +1426,7 @@ function RecommendationCard({
         <button
           type="button"
           onClick={onExplain}
-          className="min-h-11 rounded-2xl border border-[#fecaca] bg-white px-4 text-xs font-bold text-[#dc2626] hover:bg-red-50 transition-all cursor-pointer active:scale-95"
+          className="min-h-11 rounded-2xl border border-[#d8eadf] bg-white px-4 text-xs font-bold text-[#16a34a] hover:bg-emerald-50/50 transition-all cursor-pointer active:scale-95"
         >
           Giải thích lý do
         </button>
@@ -1830,6 +1865,9 @@ function RescheduleSheet({
 
 // Sleek Booking Sheet implementing Flow 1 and Flow 2 with extremely optimized steps
 function BookingSheet({
+  isPreselected,
+  step,
+  setStep,
   specialty,
   mode,
   fromAi,
@@ -1841,6 +1879,9 @@ function BookingSheet({
   onUnknown,
   onConfirm,
 }: {
+  isPreselected: boolean;
+  step: number;
+  setStep: (step: number) => void;
   specialty: string | null;
   mode: AppointmentMode;
   fromAi: boolean;
@@ -1857,284 +1898,489 @@ function BookingSheet({
   const [selectedFacilityId, setSelectedFacilityId] = useState<string>("facility-hosp-a");
   const [selectedHour, setSelectedHour] = useState<string>("14:00");
   const [selectedDate, setSelectedDate] = useState<string>("24/07/2025");
+  const [customDisease, setCustomDisease] = useState("");
 
   const availableDates = ["24/07/2025", "25/07/2025", "26/07/2025", "27/07/2025"];
 
-  const activeSpecialty = specialty || "Tim mạch";
-  const filteredDoctors = bookingDoctors.filter((doc) => doc.specialty === activeSpecialty);
+  const activeSpecialty = specialty;
+  const filteredDoctors = bookingDoctors.filter((doc) => !activeSpecialty || activeSpecialty === "Khác" || doc.specialty === activeSpecialty);
   const activeDoctor = filteredDoctors.find((doc) => doc.id === selectedDocId) || filteredDoctors[0] || bookingDoctors[0];
 
+  const totalSteps = isPreselected ? 3 : 4;
+  const displayStepNum = isPreselected ? step - 1 : step;
+
   const handleBookingSubmit = () => {
+    const finalSpecialty = activeSpecialty === "Khác" ? `Khác (${customDisease.trim()})` : activeSpecialty;
     if (internalMode === "Online") {
-      // Flow 1 Online Booking logic
       onConfirm({
         mode: "Online",
         doctorName: activeDoctor.name,
-        specialty: activeSpecialty,
-        time: activeDoctor.onlineSlot?.split(" ")[0] || "14:30",
-        date: activeDoctor.onlineSlot?.includes("ngày mai") ? "25/07/2025" : "24/07/2025",
+        specialty: finalSpecialty,
+        time: selectedHour,
+        date: selectedDate,
         fee: activeDoctor.fee || "150.000đ",
       });
     } else {
-      // Flow 2 Offline Booking logic
       const facilityObj = facilitiesList.find((f) => f.id === selectedFacilityId) || facilitiesList[0];
       onConfirm({
         mode: "Offline",
         doctorName: activeDoctor.name,
-        specialty: activeSpecialty,
+        specialty: finalSpecialty,
         time: selectedHour,
         date: selectedDate,
         facility: facilityObj.name,
+        fee: "150.000đ",
       });
     }
   };
 
+  // Sync mode changes with parent if needed
+  useEffect(() => {
+    onModeChange(internalMode);
+  }, [internalMode, onModeChange]);
+
+  // Sync doctor changes with parent if needed
+  useEffect(() => {
+    if (selectedDocId) {
+      onDoctorChange(selectedDocId);
+    }
+  }, [selectedDocId, onDoctorChange]);
+
   return (
-    <div className="pr-9 font-sans">
+    <div className="pr-9 font-sans text-left">
       <SheetTitle
         eyebrow="Đặt lịch thông minh"
-        title={`Khám chuyên khoa: ${activeSpecialty}`}
+        title={
+          step === 1
+            ? "Chọn chuyên khoa cần khám"
+            : step === 2
+              ? "Chọn hình thức khám"
+              : step === 3
+                ? "Chọn thông tin chi tiết"
+                : "Xác nhận lịch khám"
+        }
       />
       
-      {fromAi && (
-        <div className="mt-3.5 rounded-2xl border border-[#bbf7d0] bg-[#ecfdf3] px-3.5 py-3 text-xs text-emerald-800 leading-relaxed">
-          <p className="font-extrabold uppercase tracking-widest text-[#16a34a] text-[10px] mb-0.5">Triệu chứng:</p>
+      {/* Stepper Progress Bar */}
+      <div className="mt-4 mb-5 flex items-center justify-between px-1">
+        {Array.from({ length: totalSteps }).map((_, idx) => {
+          const stepVal = idx + (isPreselected ? 2 : 1);
+          const active = stepVal === step;
+          const completed = stepVal < step;
+          return (
+            <div key={idx} className="flex-1 flex items-center">
+              <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-extrabold transition-all duration-300 ${
+                active 
+                  ? "bg-[#16a34a] text-white shadow-sm ring-4 ring-emerald-100" 
+                  : completed 
+                    ? "bg-[#ecfdf3] text-[#16a34a] border border-emerald-200" 
+                    : "bg-slate-100 text-slate-400 border border-slate-200"
+              }`}>
+                {idx + 1}
+              </div>
+              {idx < totalSteps - 1 && (
+                <div className={`h-[2px] w-full mx-1.5 transition-all duration-300 ${
+                  completed ? "bg-[#16a34a]" : "bg-slate-200"
+                }`} />
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {fromAi && step === 2 && (
+        <div className="mt-3.5 mb-4 rounded-2xl border border-[#bbf7d0] bg-[#ecfdf3] px-3.5 py-3 text-xs text-emerald-800 leading-relaxed animate-fadeIn">
+          <p className="font-extrabold uppercase tracking-widest text-[#16a34a] text-[9px] mb-0.5">Triệu chứng AI phát hiện:</p>
           <p className="font-extrabold text-slate-800 text-[13px] mb-1">Đau ngực nhẹ (Tim mạch)</p>
-          <p className="text-slate-600 text-[12px]">AI tự động điền chuyên khoa thích hợp. Không cần lựa chọn lại.</p>
+          <p className="text-slate-600 text-[11px]">AI đã tự động điền chuyên khoa phù hợp. Bắt đầu từ chọn hình thức khám.</p>
         </div>
       )}
 
-      {/* Specialty selection (Only if general booking and not recommended) */}
-      {!fromAi && !specialty && (
-        <div className="mt-4">
-          <p className="text-[12px] font-bold text-slate-500 mb-2 uppercase tracking-wide">1. Chọn Chuyên khoa</p>
-          <div className="grid grid-cols-3 gap-1.5">
+      {/* STEP 1: Select Specialty */}
+      {step === 1 && (
+        <div className="mt-4 space-y-4 animate-fadeIn">
+          <p className="text-[12px] font-bold text-slate-500 uppercase tracking-wide mb-2.5">1. Chọn Chuyên khoa</p>
+          <div className="grid grid-cols-3 gap-2">
             {specialties.map((item) => (
               <button
                 key={item}
                 type="button"
-                onClick={() => onSpecialtyChange(item)}
-                className={`py-2 px-1 text-center rounded-xl text-xs font-bold transition-all border ${
+                onClick={() => {
+                  onSpecialtyChange(item);
+                }}
+                className={`py-3 px-2 text-center rounded-2xl text-xs font-bold transition-all border cursor-pointer active:scale-95 ${
                   activeSpecialty === item
-                    ? "bg-[#16a34a] border-[#16a34a] text-white"
-                    : "bg-[#f8fbfd] border-[#d8eadf] text-[#334155]"
+                    ? "bg-[#16a34a] border-[#16a34a] text-white shadow-sm"
+                    : "bg-[#f8fbfd] border-[#d8eadf] text-[#334155] hover:bg-slate-50"
                 }`}
               >
                 {item}
               </button>
             ))}
           </div>
+
+          {activeSpecialty === "Khác" && (
+            <div className="mt-3.5 space-y-1.5 animate-fadeIn">
+              <label htmlFor="custom-disease-input" className="text-[12px] font-bold text-[#10233f] uppercase tracking-wide">
+                Tên bệnh / Triệu chứng muốn khám:
+              </label>
+              <input
+                id="custom-disease-input"
+                type="text"
+                value={customDisease}
+                onChange={(e) => setCustomDisease(e.target.value)}
+                placeholder="Ví dụ: Đau tai, Dị ứng thức ăn,..."
+                className="w-full bg-[#f8fbfd] border border-[#d8eadf] rounded-2xl px-3.5 py-3 text-sm font-semibold text-[#334155] focus:outline-none focus:border-[#16a34a] focus:bg-white transition-all shadow-inner"
+              />
+            </div>
+          )}
+
+          <div className="mt-6 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setStep(2)}
+              disabled={!specialty || (activeSpecialty === "Khác" && !customDisease.trim())}
+              className="w-full min-h-11 rounded-2xl bg-[#16a34a] hover:bg-emerald-700 text-xs font-bold text-white transition-all cursor-pointer active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Tiếp tục
+            </button>
+          </div>
         </div>
       )}
 
-      {/* Mode selection (Online vs Offline) */}
-      <div className="mt-4">
-        <p className="text-[12px] font-bold text-slate-500 mb-2.5 uppercase tracking-wide">Hình thức khám</p>
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            onClick={() => setInternalMode("Online")}
-            className={`py-3.5 rounded-2xl text-sm font-extrabold transition-all border flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-98 ${
-              internalMode === "Online"
-                ? "bg-[#ecfdf3] border-[#16a34a] text-[#16a34a] shadow-[0_0_12px_rgba(22,163,74,0.1)]"
-                : "bg-white border-[#d8eadf] text-[#475569] hover:bg-slate-50"
-            }`}
-          >
-            <span className="text-lg">🟢</span>
-            <span>Khám Online (Trực tuyến)</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => setInternalMode("Offline")}
-            className={`py-3.5 rounded-2xl text-sm font-extrabold transition-all border flex flex-col items-center justify-center gap-1 cursor-pointer active:scale-98 ${
-              internalMode === "Offline"
-                ? "bg-[#ecfdf3] border-[#16a34a] text-[#16a34a] shadow-[0_0_12px_rgba(22,163,74,0.1)]"
-                : "bg-white border-[#d8eadf] text-[#475569] hover:bg-slate-50"
-            }`}
-          >
-            <span className="text-lg">🏥</span>
-            <span>Khám Offline (Trực tiếp)</span>
-          </button>
-        </div>
-      </div>
-
-      {internalMode === "Online" ? (
-        // FLOW 1 - ONLINE SELECTION PANEL (Reduced UX steps: Quick confirm)
-        <div className="mt-4 space-y-4">
-          <div>
-            <p className="text-[12px] font-bold text-slate-500 mb-2 uppercase tracking-wide">Bác sĩ phù hợp & Slot sớm nhất hôm nay</p>
-            <div className="space-y-2">
-              {filteredDoctors.map((doc) => (
-                <button
-                  key={doc.id}
-                  type="button"
-                  onClick={() => setSelectedDocId(doc.id)}
-                  className={`w-full text-left p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
-                    selectedDocId === doc.id
-                      ? "border-emerald-500 bg-[#ecfdf3]/40 shadow-sm"
-                      : "border-slate-200 bg-white hover:bg-slate-50"
-                  }`}
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-bold text-[#10233f]">{doc.name}</span>
-                      <span className="text-[10px] text-amber-600 bg-amber-50 border border-amber-100 rounded-full px-2 py-0.2 flex items-center gap-0.5">
-                        ★ {doc.rating}
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1 font-semibold">Slot khả dụng: <span className="text-[#16a34a] font-bold">{doc.onlineSlot}</span></p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <span className="text-xs font-bold text-[#16a34a] bg-[#ecfdf3] border border-emerald-100 px-2 py-1 rounded-lg">Chọn</span>
-                  </div>
-                </button>
-              ))}
-            </div>
+      {/* STEP 2: Select Mode */}
+      {step === 2 && (
+        <div className="mt-4 space-y-4 animate-fadeIn">
+          <p className="text-[12px] font-bold text-slate-500 uppercase tracking-wide mb-2.5">2. Chọn hình thức khám</p>
+          <div className="grid grid-cols-1 gap-3">
+            <button
+              type="button"
+              onClick={() => setInternalMode("Online")}
+              className={`py-3.5 px-4 rounded-2xl text-left transition-all border flex items-center justify-between cursor-pointer active:scale-98 ${
+                internalMode === "Online"
+                  ? "bg-[#ecfdf3] border-[#16a34a] text-[#16a34a] shadow-[0_0_12px_rgba(22,163,74,0.1)]"
+                  : "bg-white border-[#d8eadf] text-[#475569] hover:bg-slate-50"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🟢</span>
+                <div>
+                  <p className="font-extrabold text-[14px] text-[#10233f]">Khám Online (Trực tuyến)</p>
+                  <p className="text-xs text-slate-500 mt-0.5 font-medium">Tư vấn video call & chat trực tiếp</p>
+                </div>
+              </div>
+              <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                internalMode === "Online" ? "border-[#16a34a]" : "border-slate-300"
+              }`}>
+                {internalMode === "Online" && <div className="h-2.5 w-2.5 rounded-full bg-[#16a34a]" />}
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setInternalMode("Offline")}
+              className={`py-3.5 px-4 rounded-2xl text-left transition-all border flex items-center justify-between cursor-pointer active:scale-98 ${
+                internalMode === "Offline"
+                  ? "bg-[#ecfdf3] border-[#16a34a] text-[#16a34a] shadow-[0_0_12px_rgba(22,163,74,0.1)]"
+                  : "bg-white border-[#d8eadf] text-[#475569] hover:bg-slate-50"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🏥</span>
+                <div>
+                  <p className="font-extrabold text-[14px] text-[#10233f]">Khám Offline (Trực tiếp)</p>
+                  <p className="text-xs text-slate-500 mt-0.5 font-medium">Đến khám lâm sàng tại bệnh viện</p>
+                </div>
+              </div>
+              <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                internalMode === "Offline" ? "border-[#16a34a]" : "border-slate-300"
+              }`}>
+                {internalMode === "Offline" && <div className="h-2.5 w-2.5 rounded-full bg-[#16a34a]" />}
+              </div>
+            </button>
           </div>
+          
+          <div className="mt-6 flex gap-2">
+            {!isPreselected && (
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                className="flex-1 min-h-11 rounded-2xl border border-slate-200 bg-white text-xs font-bold text-[#334155] hover:bg-slate-50 transition-all cursor-pointer active:scale-95"
+              >
+                Quay lại
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setStep(3)}
+              className="flex-1 min-h-11 rounded-2xl bg-[#16a34a] hover:bg-emerald-700 text-xs font-bold text-white transition-all cursor-pointer active:scale-95"
+            >
+              Tiếp tục
+            </button>
+          </div>
+        </div>
+      )}
 
-          {/* Quick Confirmation summary */}
-          <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3.5 space-y-2.5">
-            <h4 className="text-xs font-extrabold uppercase tracking-wide text-slate-500">Thông tin xác nhận đặt lịch</h4>
-            <div className="grid grid-cols-[1fr_auto] gap-2 text-sm">
-              <span className="text-slate-500 font-semibold">Hình thức:</span>
-              <span className="text-[#10233f] font-extrabold flex items-center gap-1">🟢 Khám Online</span>
+      {/* STEP 3: Select Details */}
+      {step === 3 && (
+        <div className="mt-4 space-y-4 animate-fadeIn">
+          {internalMode === "Online" ? (
+            <div className="space-y-3">
+              {/* Doctor Selector */}
+              <div>
+                <p className="text-[12px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">3a. Chọn bác sĩ tư vấn trực tuyến</p>
+                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                  {filteredDoctors.map((doc) => (
+                    <button
+                      key={doc.id}
+                      type="button"
+                      onClick={() => setSelectedDocId(doc.id)}
+                      className={`w-full text-left p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                        selectedDocId === doc.id
+                          ? "border-emerald-500 bg-[#ecfdf3]/40 shadow-sm"
+                          : "border-slate-200 bg-white hover:bg-slate-50"
+                      }`}
+                    >
+                      <div className="min-w-0 pr-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-[#10233f]">{doc.name}</span>
+                          <span className="text-[9px] text-amber-600 bg-amber-50 border border-amber-100 rounded-full px-1.5 py-0.2 flex items-center gap-0.5">
+                            ★ {doc.rating}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-500 mt-0.5 font-semibold">
+                          Phí tư vấn: <span className="text-[#16a34a] font-bold">{doc.fee || "150.000đ"}</span>
+                        </p>
+                      </div>
+                      <div className={`h-4.5 w-4.5 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                        selectedDocId === doc.id ? "border-[#16a34a]" : "border-slate-300"
+                      }`}>
+                        {selectedDocId === doc.id && <div className="h-2 w-2 rounded-full bg-[#16a34a]" />}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-              <span className="text-slate-500 font-semibold">Bác sĩ khám:</span>
-              <span className="text-[#10233f] font-extrabold">{activeDoctor.name}</span>
+              {/* Date Selector */}
+              <div>
+                <p className="text-[12px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">3b. Chọn ngày tư vấn trực tuyến</p>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {availableDates.map((dateStr) => {
+                    const label = dateStr === "24/07/2025" ? "Hôm nay" : dateStr === "25/07/2025" ? "Ngày mai" : dateStr === "26/07/2025" ? "Ngày kia" : dateStr.split("/")[0] + "/" + dateStr.split("/")[1];
+                    return (
+                      <button
+                        key={dateStr}
+                        type="button"
+                        onClick={() => setSelectedDate(dateStr)}
+                        className={`py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer active:scale-95 flex flex-col items-center justify-center ${
+                          selectedDate === dateStr
+                            ? "bg-[#16a34a] border-[#16a34a] text-white shadow-sm"
+                            : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                        }`}
+                      >
+                        <span className="text-[9px] font-medium leading-none opacity-85">{label}</span>
+                        <span className="text-[11px] font-extrabold mt-0.5">{dateStr.substring(0, 5)}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Hour Selector */}
+              <div>
+                <p className="text-[12px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">3c. Chọn giờ tư vấn trực tuyến</p>
+                <div className="grid grid-cols-4 gap-2">
+                  {["08:30", "10:00", "14:30", "16:00"].map((hour) => (
+                    <button
+                      key={hour}
+                      type="button"
+                      onClick={() => setSelectedHour(hour)}
+                      className={`py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer active:scale-95 ${
+                        selectedHour === hour
+                          ? "bg-[#16a34a] border-[#16a34a] text-white shadow-sm"
+                          : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                      }`}
+                    >
+                      {hour}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {/* Facility choice */}
+              <div>
+                <p className="text-[12px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">3a. Chọn cơ sở khám gần nhất</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {facilitiesList.map((fac) => (
+                    <button
+                      key={fac.id}
+                      type="button"
+                      onClick={() => setSelectedFacilityId(fac.id)}
+                      className={`p-3 text-left rounded-2xl border transition-all cursor-pointer ${
+                        selectedFacilityId === fac.id
+                          ? "border-[#16a34a] bg-[#ecfdf3]/40"
+                          : "border-slate-200 bg-white hover:bg-slate-50"
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Building2 className="h-4 w-4 text-[#16a34a]" />
+                        <span className="text-xs font-extrabold text-[#10233f] truncate">{fac.name}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-[10px] text-slate-500">
+                        <span>Khoảng cách:</span>
+                        <span className="font-bold text-slate-700">{fac.distance}</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Choose Doctor */}
+              <div>
+                <p className="text-[12px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">3b. Chọn bác sĩ trực tại cơ sở</p>
+                <select
+                  value={selectedDocId || ""}
+                  onChange={(e) => setSelectedDocId(e.target.value)}
+                  className="w-full bg-[#f8fbfd] border border-[#d8eadf] rounded-2xl px-3.5 py-3 text-sm font-semibold text-[#334155] focus:outline-none focus:border-[#16a34a]"
+                >
+                  {filteredDoctors.map((doc) => (
+                    <option key={doc.id} value={doc.id}>
+                      {doc.name} (⭐ {doc.rating})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Choose Date */}
+              <div>
+                <p className="text-[12px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">3c. Chọn ngày khám</p>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {availableDates.map((dateStr) => {
+                    const label = dateStr === "24/07/2025" ? "Hôm nay" : dateStr === "25/07/2025" ? "Ngày mai" : dateStr === "26/07/2025" ? "Ngày kia" : dateStr.split("/")[0] + "/" + dateStr.split("/")[1];
+                    return (
+                      <button
+                        key={dateStr}
+                        type="button"
+                        onClick={() => setSelectedDate(dateStr)}
+                        className={`py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer active:scale-95 flex flex-col items-center justify-center ${
+                          selectedDate === dateStr
+                            ? "bg-[#16a34a] border-[#16a34a] text-white shadow-sm"
+                            : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                        }`}
+                      >
+                        <span className="text-[9px] font-medium leading-none opacity-85">{label}</span>
+                        <span className="text-[11px] font-extrabold mt-0.5">{dateStr.substring(0, 5)}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Choose slot/hour */}
+              <div>
+                <p className="text-[12px] font-bold text-slate-500 uppercase tracking-wide mb-1.5">3d. Chọn giờ khám phù hợp</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {facilitiesList
+                    .find((f) => f.id === selectedFacilityId)
+                    ?.slots.map((hour) => (
+                      <button
+                        key={hour}
+                        type="button"
+                        onClick={() => setSelectedHour(hour)}
+                        className={`py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer active:scale-95 ${
+                          selectedHour === hour
+                            ? "bg-[#16a34a] border-[#16a34a] text-white shadow-sm"
+                            : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                        }`}
+                      >
+                        {hour}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-6 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setStep(2)}
+              className="flex-1 min-h-11 rounded-2xl border border-slate-200 bg-white text-xs font-bold text-[#334155] hover:bg-slate-50 transition-all cursor-pointer active:scale-95"
+            >
+              Quay lại
+            </button>
+            <button
+              type="button"
+              onClick={() => setStep(4)}
+              className="flex-1 min-h-11 rounded-2xl bg-[#16a34a] hover:bg-emerald-700 text-xs font-bold text-white transition-all cursor-pointer active:scale-95"
+            >
+              Tiếp tục
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 4: Confirmation */}
+      {step === 4 && (
+        <div className="mt-4 space-y-4 animate-fadeIn">
+          <p className="text-[12px] font-bold text-slate-500 uppercase tracking-wide mb-1">4. Xác nhận thông tin lịch khám</p>
+          
+          <div className="rounded-2xl bg-[#f8fbfd] border border-[#d8eadf] p-4 space-y-3.5">
+            <div className="flex items-center gap-2.5 border-b border-slate-100 pb-2.5">
+              <span className="text-2xl">{internalMode === "Online" ? "🟢" : "🏥"}</span>
+              <div>
+                <p className="font-extrabold text-[15px] text-[#10233f]">
+                  Khám {internalMode === "Online" ? "Online trực tuyến" : "Offline trực tiếp"}
+                </p>
+                <p className="text-xs text-slate-500 mt-0.5 font-semibold">Chuyên khoa: {activeSpecialty === "Khác" ? `Khác (${customDisease.trim()})` : activeSpecialty}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-[100px_1fr] gap-x-2 gap-y-2 text-xs">
+              <span className="text-slate-500 font-semibold">Bác sĩ tư vấn:</span>
+              <span className="font-extrabold text-[#10233f]">{activeDoctor.name}</span>
+              
+              {internalMode === "Offline" && (
+                <>
+                  <span className="text-slate-500 font-semibold">Cơ sở khám:</span>
+                  <span className="font-extrabold text-[#10233f]">
+                    {facilitiesList.find((f) => f.id === selectedFacilityId)?.name}
+                  </span>
+                </>
+              )}
 
               <span className="text-slate-500 font-semibold">Thời gian hẹn:</span>
-              <span className="text-[#16a34a] font-extrabold">{activeDoctor.onlineSlot}</span>
-
-              <span className="text-slate-500 font-semibold">Phí tư vấn:</span>
-              <span className="text-[#10233f] font-extrabold bg-[#ecfdf3] px-2 py-0.5 rounded text-xs">{activeDoctor.fee || "150.000đ"}</span>
-            </div>
-          </div>
-        </div>
-      ) : (
-        // FLOW 2 - OFFLINE SELECTION PANEL
-        <div className="mt-4 space-y-4">
-          {/* Step 1: Facility choice */}
-          <div>
-            <p className="text-[12px] font-bold text-slate-500 mb-2 uppercase tracking-wide">1. Chọn cơ sở khám gần nhất</p>
-            <div className="grid grid-cols-2 gap-2">
-              {facilitiesList.map((fac) => (
-                <button
-                  key={fac.id}
-                  type="button"
-                  onClick={() => setSelectedFacilityId(fac.id)}
-                  className={`p-3 text-left rounded-2xl border transition-all cursor-pointer ${
-                    selectedFacilityId === fac.id
-                      ? "border-[#16a34a] bg-[#ecfdf3]/40"
-                      : "border-slate-200 bg-white hover:bg-slate-50"
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <Building2 className="h-4 w-4 text-[#16a34a]" />
-                    <span className="text-sm font-bold text-[#10233f]">{fac.name}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs text-slate-500">
-                    <span>Khoảng cách:</span>
-                    <span className="font-bold text-slate-700">{fac.distance}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Step 2: Choose Doctor */}
-          <div>
-            <p className="text-[12px] font-bold text-slate-500 mb-2 uppercase tracking-wide">2. Chọn bác sĩ trực tại cơ sở</p>
-            <select
-              value={selectedDocId || ""}
-              onChange={(e) => setSelectedDocId(e.target.value)}
-              className="w-full bg-[#f8fbfd] border border-[#d8eadf] rounded-2xl px-3.5 py-3 text-sm font-semibold text-[#334155] focus:outline-none focus:border-[#16a34a]"
-            >
-              {filteredDoctors.map((doc) => (
-                <option key={doc.id} value={doc.id}>
-                  {doc.name} (⭐ {doc.rating})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Step 3: Choose Date */}
-          <div>
-            <p className="text-[12px] font-bold text-slate-500 mb-2 uppercase tracking-wide">3. Chọn ngày khám</p>
-            <div className="grid grid-cols-4 gap-2">
-              {availableDates.map((dateStr) => {
-                const label = dateStr === "24/07/2025" ? "Hôm nay" : dateStr === "25/07/2025" ? "Ngày mai" : dateStr === "26/07/2025" ? "Ngày kia" : dateStr.split("/")[0] + "/" + dateStr.split("/")[1];
-                return (
-                  <button
-                    key={dateStr}
-                    type="button"
-                    onClick={() => setSelectedDate(dateStr)}
-                    className={`py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer active:scale-95 flex flex-col items-center justify-center ${
-                      selectedDate === dateStr
-                        ? "bg-[#16a34a] border-[#16a34a] text-white shadow-sm"
-                        : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                    }`}
-                  >
-                    <span className="text-[9px] font-medium leading-none opacity-85">{label}</span>
-                    <span className="text-[11px] font-extrabold mt-0.5">{dateStr.substring(0, 5)}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Step 4: Choose slot/hour */}
-          <div>
-            <p className="text-[12px] font-bold text-slate-500 mb-2 uppercase tracking-wide">4. Chọn giờ khám phù hợp</p>
-            <div className="grid grid-cols-3 gap-2">
-              {facilitiesList
-                .find((f) => f.id === selectedFacilityId)
-                ?.slots.map((hour) => (
-                  <button
-                    key={hour}
-                    type="button"
-                    onClick={() => setSelectedHour(hour)}
-                    className={`py-2 rounded-xl text-xs font-bold transition-all border cursor-pointer active:scale-95 ${
-                      selectedHour === hour
-                        ? "bg-[#16a34a] border-[#16a34a] text-white shadow-sm"
-                        : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
-                    }`}
-                  >
-                    {hour}
-                  </button>
-                ))}
-            </div>
-          </div>
-
-          {/* Step 5: Quick Confirmation summary */}
-          <div className="rounded-2xl bg-slate-50 border border-slate-200 p-3.5 space-y-2">
-            <h4 className="text-xs font-extrabold uppercase tracking-wide text-slate-500">Thông tin xác nhận đặt lịch</h4>
-            <div className="grid grid-cols-[1fr_auto] gap-2 text-sm">
-              <span className="text-slate-500 font-semibold">Hình thức:</span>
-              <span className="text-[#10233f] font-extrabold flex items-center gap-1">🏥 Khám trực tiếp</span>
-
-              <span className="text-slate-500 font-semibold">Cơ sở khám:</span>
-              <span className="text-[#10233f] font-extrabold">
-                {facilitiesList.find((f) => f.id === selectedFacilityId)?.name}
+              <span className="font-extrabold text-[#16a34a]">
+                {selectedDate} lúc {selectedHour}
               </span>
 
-              <span className="text-slate-500 font-semibold">Bác sĩ khám:</span>
-              <span className="text-[#10233f] font-extrabold">{activeDoctor.name}</span>
-
-              <span className="text-slate-500 font-semibold">Thời gian hẹn:</span>
-              <span className="text-[#16a34a] font-extrabold">{selectedDate} lúc {selectedHour}</span>
+              <span className="text-slate-500 font-semibold">Phí dịch vụ:</span>
+              <span className="font-extrabold text-[#16a34a] bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100 w-fit">
+                {internalMode === "Online" ? (activeDoctor.fee || "150.000đ") : "150.000đ"}
+              </span>
             </div>
+          </div>
+
+          <div className="mt-6 flex gap-2">
+            <button
+              type="button"
+              onClick={() => setStep(3)}
+              className="flex-1 min-h-11 rounded-2xl border border-slate-200 bg-white text-xs font-bold text-[#334155] hover:bg-slate-50 transition-all cursor-pointer active:scale-95"
+            >
+              Quay lại
+            </button>
+            <button
+              type="button"
+              onClick={handleBookingSubmit}
+              className="flex-1 min-h-11 bg-[#16a34a] hover:bg-[#15803d] text-xs font-bold text-white transition-all cursor-pointer active:scale-95 shadow-md shadow-emerald-200/50"
+            >
+              Đặt lịch khám
+            </button>
           </div>
         </div>
       )}
-
-      {/* Primary Call to action */}
-      <button
-        type="button"
-        onClick={handleBookingSubmit}
-        className="mt-5 min-h-12 w-full rounded-2xl text-sm font-extrabold text-white cursor-pointer transition-all active:scale-95 shadow-md bg-[#16a34a] hover:bg-[#15803d] shadow-emerald-200/50"
-      >
-        Xác nhận đặt lịch khám
-      </button>
     </div>
   );
 }
@@ -2367,25 +2613,66 @@ function AppointmentDetail({
             />
           </div>
         ) : (
-          <div className="mt-4 rounded-2xl border border-[#d8eadf] bg-[#f8fbfd] p-3">
-            <p className="text-[13px] font-bold text-[#10233f]">
-              Tóm tắt AI cho bác sĩ
-            </p>
-            <div className="mt-2 grid gap-2">
-              {appointment.aiSummary.map((item) => (
-                <div
-                  key={item}
-                  className="flex items-start gap-2 text-[13px] text-[#475569]"
-                >
-                  <span className="mt-1 h-2 w-2 rounded-full bg-[#16a34a]" />
-                  <span>{item}</span>
-                </div>
-              ))}
+          <>
+            <div className="mt-4 rounded-2xl border border-[#d8eadf] bg-[#f8fbfd] p-3">
+              <p className="text-[13px] font-bold text-[#10233f]">
+                Tóm tắt AI cho bác sĩ
+              </p>
+              <div className="mt-2 grid gap-2">
+                {appointment.aiSummary.map((item) => (
+                  <div
+                    key={item}
+                    className="flex items-start gap-2 text-[13px] text-[#475569]"
+                  >
+                    <span className="mt-1 h-2 w-2 rounded-full bg-[#16a34a]" />
+                    <span>{item}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-[13px] font-semibold text-[#b45309]">
+                Nguy cơ lâm sàng: {appointment.risk}
+              </p>
             </div>
-            <p className="mt-3 text-[13px] font-semibold text-[#b45309]">
-              Nguy cơ lâm sàng: {appointment.risk}
-            </p>
-          </div>
+
+            {appointment.mode === "Offline" && (
+              <div className="mt-3 p-4 border-2 border-dashed border-[#16a34a]/30 bg-emerald-50/30 rounded-2xl flex flex-col items-center gap-2 animate-fadeIn">
+                <p className="text-xs font-bold text-[#16a34a] uppercase tracking-wider">Mã QR Check-in tại Bệnh viện</p>
+                <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-sm flex items-center justify-center">
+                  <svg viewBox="0 0 100 100" className="w-28 h-28 text-slate-800">
+                    <path d="M 0 0 H 20 V 20 H 0 Z M 4 4 H 16 V 16 H 4 Z M 8 8 H 12 V 12 H 8 Z" fill="currentColor"/>
+                    <path d="M 80 0 H 100 V 20 H 80 Z M 84 4 H 96 V 16 H 84 Z M 88 8 H 92 V 12 H 88 Z" fill="currentColor"/>
+                    <path d="M 0 80 H 20 V 100 H 0 Z M 4 84 H 16 V 96 H 4 Z M 8 88 H 12 V 92 H 8 Z" fill="currentColor"/>
+                    <rect x="30" y="2" width="6" height="6" fill="currentColor" />
+                    <rect x="42" y="2" width="12" height="6" fill="#16a34a" />
+                    <rect x="60" y="2" width="6" height="12" fill="currentColor" />
+                    <rect x="72" y="8" width="6" height="6" fill="currentColor" />
+                    <rect x="30" y="20" width="12" height="6" fill="currentColor" />
+                    <rect x="48" y="26" width="6" height="18" fill="currentColor" />
+                    <rect x="60" y="20" width="18" height="6" fill="#16a34a" />
+                    <rect x="84" y="26" width="12" height="6" fill="currentColor" />
+                    <rect x="2" y="30" width="6" height="18" fill="currentColor" />
+                    <rect x="14" y="36" width="12" height="6" fill="currentColor" />
+                    <rect x="30" y="36" width="12" height="12" fill="#16a34a" />
+                    <rect x="48" y="50" width="6" height="6" fill="currentColor" />
+                    <rect x="60" y="36" width="12" height="6" fill="currentColor" />
+                    <rect x="78" y="36" width="18" height="6" fill="currentColor" />
+                    <rect x="2" y="60" width="18" height="6" fill="currentColor" />
+                    <rect x="26" y="54" width="6" height="18" fill="currentColor" />
+                    <rect x="38" y="60" width="18" height="6" fill="#16a34a" />
+                    <rect x="62" y="54" width="6" height="12" fill="currentColor" />
+                    <rect x="74" y="60" width="12" height="6" fill="currentColor" />
+                    <rect x="26" y="80" width="12" height="12" fill="currentColor" />
+                    <rect x="44" y="86" width="18" height="6" fill="currentColor" />
+                    <rect x="68" y="80" width="6" height="12" fill="currentColor" />
+                    <rect x="80" y="86" width="18" height="6" fill="#16a34a" />
+                  </svg>
+                </div>
+                <p className="text-[10px] text-slate-500 text-center font-medium">
+                  Quét mã này tại quầy tiếp đón hoặc ki-ốt tự động để xác nhận có mặt khám nhanh chóng
+                </p>
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>

@@ -78,7 +78,7 @@ export default function EmergencyFab() {
       <div
         className="fixed left-1/2 z-50 w-full max-w-97.5 -translate-x-1/2 px-6"
         style={{
-          bottom: "calc(env(safe-area-inset-bottom, 6px) + 4.25rem)",
+          bottom: "calc(env(safe-area-inset-bottom, 6px) + 5.75rem)",
         }}
       >
         <button
