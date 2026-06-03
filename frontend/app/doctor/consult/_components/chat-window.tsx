@@ -128,37 +128,33 @@ export default function ChatWindow({
         </div>
       </div>
 
-      <footer className="px-4 py-6">
-        <div className="mx-auto max-w-3xl">
-          <div className="flex items-center gap-3">
-            <div className="flex-1">
-              <div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm shadow-sm">
-                <textarea
-                  rows={1}
-                  placeholder="Nhập tin nhắn..."
-                  value={messageInput}
-                  onChange={(e) => setMessageInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      onSend();
-                    }
-                  }}
-                  className="w-full resize-none border-0 bg-transparent p-0 text-sm outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="ml-4">
-              <button
-                onClick={onSend}
-                className="relative flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-white shadow-[0_18px_40px_rgba(16,185,129,0.18)] transition transform duration-150 hover:scale-105 hover:shadow-2xl active:scale-95 focus:outline-none focus:ring-4 focus:ring-emerald-100"
-                aria-label="Gửi"
-              >
-                <span className="text-sm font-semibold">Gửi</span>
-              </button>
+      <footer className="px-4 py-4 border-t border-slate-100">
+        <div className="flex items-center gap-3">
+          <div className="flex-1">
+            <div className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm shadow-sm">
+              <textarea
+                rows={1}
+                placeholder="Nhập tin nhắn..."
+                value={messageInput}
+                onChange={(e) => setMessageInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    onSend();
+                  }
+                }}
+                className="w-full resize-none border-0 bg-transparent p-0 text-sm outline-none"
+              />
             </div>
           </div>
+
+          <button
+            onClick={onSend}
+            className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-600 text-white shadow-[0_18px_40px_rgba(16,185,129,0.18)] transition transform duration-150 hover:scale-105 hover:shadow-2xl active:scale-95 focus:outline-none focus:ring-4 focus:ring-emerald-100"
+            aria-label="Gửi"
+          >
+            <span className="text-sm font-semibold">Gửi</span>
+          </button>
         </div>
       </footer>
     </div>

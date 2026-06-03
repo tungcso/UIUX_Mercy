@@ -43,8 +43,8 @@ export default function ConsultPage() {
           consultUnread={consultUnreadCount}
         />
 
-        <main className="flex-1 overflow-hidden px-6">
-          <div className="relative w-full h-full">
+        <main className="flex-1 overflow-hidden px-6 h-screen flex flex-col justify-center py-[2.5vh]">
+          <div className="relative w-full">
             <DoctorOfflineNotice />
             <ChatShell patients={consultPatients} />
           </div>

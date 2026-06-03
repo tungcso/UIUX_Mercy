@@ -54,14 +54,14 @@ const initialPrescriptions: Prescription[] = [
     id: "rx-1",
     name: "Aspirin",
     dose: "Hàm lượng: 100mg",
-    qty: "30 Viên",
+    qty: "Viên",
     usage: "Uống 1 viên sau ăn sáng",
   },
   {
     id: "rx-2",
     name: "Metformin",
     dose: "Hàm lượng: 850mg",
-    qty: "60 Viên",
+    qty: "Viên",
     usage: "Uống 1 viên cùng bữa ăn tối",
   },
 ];
@@ -79,6 +79,14 @@ export default function PrescriptionShell() {
     medicationOptions[0].doseOptions[0],
   );
   const [selectedQty, setSelectedQty] = useState("30");
+  const [selectedUnit, setSelectedUnit] = useState("Viên");
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
+
+  const filteredDrugs = medicationOptions.filter((drug) =>
+    drug.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const showSuccessNotice = (actionName: string) => {
     setActionNotice(`${actionName} thành công`);
@@ -97,30 +105,26 @@ export default function PrescriptionShell() {
 
   const handleAddPrescription = () => {
     const activeDrug = medicationOptions.find(
-      (item) => item.name === selectedDrugName,
+      (item) => item.name.toLowerCase() === selectedDrugName.toLowerCase(),
     );
-    const parsedQty = Number(selectedQty);
 
     if (
-      !activeDrug ||
-      !selectedDose ||
-      Number.isNaN(parsedQty) ||
-      parsedQty <= 0
+      !selectedDrugName.trim() ||
+      !selectedDose.trim()
     ) {
       return;
     }
 
     const nextPrescription: Prescription = {
       id: `rx-${Date.now()}`,
-      name: activeDrug.name,
-      dose: `Hàm lượng: ${selectedDose}`,
-      qty: `${parsedQty} Viên`,
-      usage: activeDrug.defaultUsage,
+      name: selectedDrugName.trim(),
+      dose: `Hàm lượng: ${selectedDose.trim()}`,
+      qty: selectedUnit,
+      usage: activeDrug?.defaultUsage || "Uống theo hướng dẫn của bác sĩ",
     };
 
     setPrescriptions((current) => [...current, nextPrescription]);
     setIsAddPrescriptionOpen(false);
-    setSelectedQty("30");
     showSuccessNotice("Kê thêm đơn thuốc");
   };
 
@@ -180,18 +184,62 @@ export default function PrescriptionShell() {
         </div>
       </div>
 
-      <div className="mb-5">
+      <div className="relative mb-5 z-20 w-full max-w-3xl">
         <input
+          type="text"
           placeholder="Gõ tìm kiếm tên hoạt chất (VD: Aspirin, Ibuprofen, Paracetamol)..."
-          className="w-full max-w-3xl rounded-[1.2rem] border border-slate-200 bg-white px-4 py-2.5 text-[14px] text-slate-500 outline-none"
+          value={searchQuery}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            setShowDropdown(true);
+          }}
+          onFocus={() => setShowDropdown(true)}
+          className="w-full rounded-[1.2rem] border border-slate-200 bg-white px-4 py-2.5 text-[14px] text-slate-700 outline-none transition focus:border-emerald-300 focus:ring-4 focus:ring-emerald-100 placeholder-slate-400"
         />
+
+        {showDropdown && searchQuery.trim() && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setShowDropdown(false)} />
+            <div className="absolute left-0 right-0 mt-2 max-h-60 overflow-y-auto rounded-2xl border border-slate-200 bg-white py-2 shadow-lg z-50">
+              {filteredDrugs.length > 0 ? (
+                filteredDrugs.map((drug) => (
+                  <button
+                    key={drug.name}
+                    type="button"
+                    onClick={() => {
+                      handleDrugChange(drug.name);
+                      setIsAddPrescriptionOpen(true);
+                      setSearchQuery("");
+                      setShowDropdown(false);
+                    }}
+                    className="flex w-full items-center justify-between px-4 py-2.5 text-left text-sm hover:bg-slate-50 transition-colors"
+                  >
+                    <div>
+                      <span className="font-semibold text-slate-800">{drug.name}</span>
+                      <span className="ml-2 text-xs text-slate-400">
+                        ({drug.doseOptions.join(", ")})
+                      </span>
+                    </div>
+                    <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+                      Chọn kê đơn
+                    </span>
+                  </button>
+                ))
+              ) : (
+                <div className="px-4 py-3 text-sm text-slate-400 italic">
+                  Không tìm thấy thuốc nào khớp với từ khóa
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
 
       <section>
         <div className="rounded-[1.65rem] border border-slate-200/80 bg-white px-4 py-2.5 shadow-[0_18px_45px_rgba(15,23,42,0.04)] sm:px-5 sm:py-3">
           <div className="grid grid-cols-4 gap-4 px-2 py-3 text-[13px] text-slate-500">
             <div>Tên thuốc</div>
-            <div className="text-center">Số lượng</div>
+            <div className="text-center">Liều dùng</div>
             <div>Liều dùng khuyến cáo</div>
             <div className="text-right">Tác vụ</div>
           </div>
@@ -207,12 +255,12 @@ export default function PrescriptionShell() {
                     {p.name}
                   </div>
                   <div className="mt-1 text-[11px] text-slate-400">
-                    {p.dose}
+                    Đơn vị: {p.qty}
                   </div>
                 </div>
 
                 <div className="text-center text-[15px] font-bold text-slate-900">
-                  {p.qty}
+                  {p.dose.replace("Hàm lượng: ", "")}
                 </div>
 
                 <div className="text-[14px] text-slate-700">{p.usage}</div>
@@ -324,17 +372,28 @@ export default function PrescriptionShell() {
                 <label className="mb-1.5 block text-[13px] font-semibold text-slate-700">
                   Thuốc
                 </label>
-                <select
+                <input
+                  type="text"
                   value={selectedDrugName}
-                  onChange={(event) => handleDrugChange(event.target.value)}
+                  onChange={(event) => {
+                    const val = event.target.value;
+                    setSelectedDrugName(val);
+                    const matchingDrug = medicationOptions.find(
+                      (item) => item.name.toLowerCase() === val.toLowerCase()
+                    );
+                    if (matchingDrug) {
+                      setSelectedDose(matchingDrug.doseOptions[0]);
+                    }
+                  }}
                   className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] text-slate-700 outline-none transition-colors focus:border-emerald-300"
-                >
+                  placeholder="Gõ tên thuốc hoặc hoạt chất..."
+                  list="drug-suggestions"
+                />
+                <datalist id="drug-suggestions">
                   {medicationOptions.map((drug) => (
-                    <option key={drug.name} value={drug.name}>
-                      {drug.name}
-                    </option>
+                    <option key={drug.name} value={drug.name} />
                   ))}
-                </select>
+                </datalist>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
@@ -342,34 +401,33 @@ export default function PrescriptionShell() {
                   <label className="mb-1.5 block text-[13px] font-semibold text-slate-700">
                     Liều lượng
                   </label>
-                  <select
+                  <input
+                    type="text"
                     value={selectedDose}
                     onChange={(event) => setSelectedDose(event.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] text-slate-700 outline-none transition-colors focus:border-emerald-300"
-                  >
-                    {(
-                      medicationOptions.find(
-                        (drug) => drug.name === selectedDrugName,
-                      )?.doseOptions ?? []
-                    ).map((dose) => (
-                      <option key={dose} value={dose}>
-                        {dose}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="VD: 100mg, 500mg..."
+                  />
                 </div>
 
                 <div>
                   <label className="mb-1.5 block text-[13px] font-semibold text-slate-700">
-                    Số lượng (viên)
+                    Đơn vị
                   </label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={selectedQty}
-                    onChange={(event) => setSelectedQty(event.target.value)}
+                  <select
+                    value={selectedUnit}
+                    onChange={(event) => setSelectedUnit(event.target.value)}
                     className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-[14px] text-slate-700 outline-none transition-colors focus:border-emerald-300"
-                  />
+                  >
+                    <option value="Viên">Viên</option>
+                    <option value="ml">ml</option>
+                    <option value="mg">mg</option>
+                    <option value="g">g</option>
+                    <option value="Gói">Gói</option>
+                    <option value="Chai">Chai</option>
+                    <option value="Ống">Ống</option>
+                    <option value="Tuýp">Tuýp</option>
+                  </select>
                 </div>
               </div>
             </div>
