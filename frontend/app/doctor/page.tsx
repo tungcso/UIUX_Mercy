@@ -10,6 +10,8 @@ import {
   AlertTriangle,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Brain,
   ClipboardList,
   LayoutDashboard,
@@ -60,18 +62,23 @@ function StatusPill({
   tone,
 }: {
   children: React.ReactNode;
-  tone: "green" | "red" | "slate";
+  tone: "green" | "red" | "slate" | "amber" | "blue";
 }) {
   const toneClasses = {
     green: "border-emerald-200 bg-emerald-50 text-emerald-700",
     red: "border-red-200 bg-red-50 text-red-700",
     slate: "border-slate-200 bg-slate-50 text-slate-600",
+    amber: "border-amber-200 bg-amber-50 text-amber-700",
+    blue: "border-sky-200 bg-sky-50 text-sky-700",
   };
 
   return (
     <span
-      className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${toneClasses[tone]}`}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold ${toneClasses[tone]}`}
     >
+      <span className={`h-1.5 w-1.5 rounded-full ${
+        tone === "red" ? "bg-red-500" : tone === "amber" ? "bg-amber-500" : tone === "blue" ? "bg-sky-500" : tone === "green" ? "bg-emerald-500" : "bg-slate-400"
+      }`} />
       {children}
     </span>
   );
@@ -699,34 +706,38 @@ function PatientCard({
   details: string;
   time: string;
   status: string;
-  statusTone: "green" | "red" | "slate";
-  accent: "green" | "red" | "slate";
+  statusTone: "green" | "red" | "slate" | "amber" | "blue";
+  accent: "green" | "red" | "slate" | "amber" | "blue";
   actionLabel: string;
   onActionClick: () => void;
 }) {
-  const accentClasses = {
+  const accentClasses: Record<string, string> = {
     green: "border-emerald-300 bg-white",
     red: "border-red-300 bg-white",
     slate: "border-slate-200 bg-white",
+    amber: "border-amber-200 bg-white",
+    blue: "border-sky-200 bg-white",
   };
 
-  const initialsClasses = {
+  const initialsClasses: Record<string, string> = {
     green: "bg-emerald-100 text-emerald-600",
     red: "bg-red-100 text-red-500",
     slate: "bg-slate-100 text-slate-500",
+    amber: "bg-amber-100 text-amber-600",
+    blue: "bg-sky-100 text-sky-600",
   };
 
   const actionButtonClasses =
     statusTone === "red"
       ? "bg-red-600 text-white shadow-[0_12px_24px_rgba(239,68,68,0.22)] hover:-translate-y-0.5 hover:bg-red-700 hover:shadow-[0_14px_28px_rgba(239,68,68,0.28)]"
-      : "border border-emerald-200 bg-emerald-50 text-emerald-700 shadow-sm hover:-translate-y-0.5 hover:border-emerald-300 hover:bg-emerald-100 hover:shadow-[0_10px_20px_rgba(16,185,129,0.12)]";
+      : "border border-slate-300 bg-white text-slate-700 shadow-sm hover:-translate-y-0.5 hover:border-slate-400 hover:bg-slate-50 hover:shadow-[0_10px_20px_rgba(15,23,42,0.08)]";
 
   return (
     <div
-      className={`flex items-center gap-4 rounded-2xl border p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)] ${accentClasses[accent]}`}
+      className={`flex items-center gap-4 rounded-2xl border p-4 shadow-[0_10px_28px_rgba(15,23,42,0.05)] ${accentClasses[accent] ?? accentClasses.slate}`}
     >
       <div
-        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-bold ${initialsClasses[accent]}`}
+        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-sm font-bold ${initialsClasses[accent] ?? initialsClasses.slate}`}
       >
         {initials}
       </div>
@@ -744,7 +755,7 @@ function PatientCard({
           Thời gian thực
         </p>
         <p
-          className={`text-base font-bold ${statusTone === "red" ? "text-red-500" : statusTone === "green" ? "text-emerald-700" : "text-slate-700"}`}
+          className={`text-base font-bold ${statusTone === "red" ? "text-red-500" : statusTone === "amber" ? "text-amber-600" : statusTone === "blue" ? "text-sky-700" : statusTone === "green" ? "text-emerald-700" : "text-slate-700"}`}
         >
           {time}
         </p>
@@ -769,8 +780,8 @@ type Appointment = {
   details: string;
   time: string;
   status: string;
-  statusTone: "green" | "red" | "slate";
-  accent: "green" | "red" | "slate";
+  statusTone: "green" | "red" | "slate" | "amber" | "blue";
+  accent: "green" | "red" | "slate" | "amber" | "blue";
   actionLabel: string;
   patientId: string;
 };
@@ -781,6 +792,7 @@ export default function DoctorDashboardPage() {
   const [showLoginSuccess, setShowLoginSuccess] = useState(false);
   const [lockNotice, setLockNotice] = useState<string | null>(null);
   const [isQuickAlertOpen, setIsQuickAlertOpen] = useState(false);
+  const [isDismissedQuickAlert, setIsDismissedQuickAlert] = useState(false);
   const [isLayoutPopupOpen, setIsLayoutPopupOpen] = useState(false);
   const [isDiagnosisPopupOpen, setIsDiagnosisPopupOpen] = useState(false);
   const [isAiErrorPopupOpen, setIsAiErrorPopupOpen] = useState(false);
@@ -791,6 +803,12 @@ export default function DoctorDashboardPage() {
   const [sortMode, setSortMode] = useState<"urgent" | "recent" | "status">(
     "urgent",
   );
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(5);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [sortMode, pageSize]);
   const [selectedAppointment, setSelectedAppointment] =
     useState<Appointment | null>(null);
   const [selectedAction, setSelectedAction] = useState<
@@ -815,6 +833,30 @@ export default function DoctorDashboardPage() {
     }
 
     return undefined;
+  }, []);
+
+  useEffect(() => {
+    const loadSettings = () => {
+      const saved = localStorage.getItem("doctor_settings");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setLayoutConfig({
+            priorityList: parsed.prioritizePatientList ?? true,
+            floatingAlert: parsed.receivePriorityAlerts ?? true,
+            compactSidebar: parsed.compactSidebar ?? false,
+          });
+        } catch (e) {
+          // ignore
+        }
+      }
+    };
+
+    loadSettings();
+    window.addEventListener("doctor_settings_changed", loadSettings);
+    return () => {
+      window.removeEventListener("doctor_settings_changed", loadSettings);
+    };
   }, []);
 
   useEffect(() => {
@@ -849,19 +891,7 @@ export default function DoctorDashboardPage() {
     };
   }, []);
 
-  const appointments: Appointment[] = [
-    {
-      initials: "TB",
-      name: "Trần Quốc Bảo",
-      details:
-        "Nam, 32T · Chấn thương mạch máu · Mạch ổn định · Đang truyền dịch",
-      time: "10:32",
-      status: "Dữ liệu bình thường",
-      statusTone: "green" as const,
-      accent: "green" as const,
-      actionLabel: "Xem chi tiết",
-      patientId: "BN-9083",
-    },
+  const [appointments, setAppointments] = useState<Appointment[]>([
     {
       initials: "LM",
       name: "Lê Thị Mai",
@@ -875,25 +905,181 @@ export default function DoctorDashboardPage() {
       patientId: "BN-9081",
     },
     {
+      initials: "TB",
+      name: "Trần Quốc Bảo",
+      details:
+        "Nam, 32T · Chấn thương mạch máu · Mạch ổn định · Đang truyền dịch",
+      time: "10:32",
+      status: "Dữ liệu bình thường",
+      statusTone: "blue" as const,
+      accent: "blue" as const,
+      actionLabel: "Xem chi tiết",
+      patientId: "BN-9083",
+    },
+    {
       initials: "PN",
       name: "Phạm Hoàng Nam",
       details:
         "Nam, 56T · Khám nội định kỳ · Sức khỏe bình thường · Chưa xử trị",
       time: "09:15",
       status: "Đang chờ",
-      statusTone: "slate" as const,
-      accent: "slate" as const,
+      statusTone: "amber" as const,
+      accent: "amber" as const,
       actionLabel: "Xem chi tiết",
       patientId: "BN-9082",
     },
-  ];
+    {
+      initials: "VH",
+      name: "Nguyễn Văn Hùng",
+      details:
+        "Nam, 45T · Nghi ngờ viêm ruột thừa cấp · Đau hố chậu phải · Theo dõi sát",
+      time: "10:45",
+      status: "NGUY HIỂM",
+      statusTone: "red" as const,
+      accent: "red" as const,
+      actionLabel: "Xử trí khẩn cấp",
+      patientId: "BN-9084",
+    },
+    {
+      initials: "HL",
+      name: "Hoàng Thị Lan",
+      details:
+        "Nữ, 28T · Sốt xuất huyết Dengue ngày 4 · Tiểu cầu giảm nhẹ · Theo dõi mạch",
+      time: "10:15",
+      status: "Đang chờ",
+      statusTone: "amber" as const,
+      accent: "amber" as const,
+      actionLabel: "Xem chi tiết",
+      patientId: "BN-9085",
+    },
+    {
+      initials: "MĐ",
+      name: "Bùi Minh Đức",
+      details:
+        "Nam, 50T · Hen phế quản ác tính · Khó thở nhẹ · Đang khí dung",
+      time: "09:50",
+      status: "NGUY HIỂM",
+      statusTone: "red" as const,
+      accent: "red" as const,
+      actionLabel: "Xử trí khẩn cấp",
+      patientId: "BN-9086",
+    },
+    {
+      initials: "VH",
+      name: "Vũ Thị Hồng",
+      details:
+        "Nữ, 70T · Suy tim độ III · Khó thở khi nằm · Phù nhẹ hai chi dưới",
+      time: "09:40",
+      status: "Dữ liệu bình thường",
+      statusTone: "blue" as const,
+      accent: "blue" as const,
+      actionLabel: "Xem chi tiết",
+      patientId: "BN-9087",
+    },
+    {
+      initials: "AT",
+      name: "Đỗ Anh Tuấn",
+      details:
+        "Nam, 38T · Ngộ độc thực phẩm cấp · Nôn mửa, tiêu chảy · Đang bù dịch",
+      time: "09:30",
+      status: "Đang chờ",
+      statusTone: "amber" as const,
+      accent: "amber" as const,
+      actionLabel: "Xem chi tiết",
+      patientId: "BN-9088",
+    },
+    {
+      initials: "TH",
+      name: "Phan Thanh Hải",
+      details:
+        "Nam, 48T · Cơn đau thắt ngực ổn định · Theo dõi ECG · Mạch ổn định",
+      time: "09:10",
+      status: "Dữ liệu bình thường",
+      statusTone: "blue" as const,
+      accent: "blue" as const,
+      actionLabel: "Xem chi tiết",
+      patientId: "BN-9089",
+    },
+    {
+      initials: "TD",
+      name: "Trần Thị Dung",
+      details:
+        "Nữ, 55T · Đái tháo đường type 2 · Đường huyết tăng nhẹ · Đang chỉnh insulin",
+      time: "08:55",
+      status: "Dữ liệu bình thường",
+      statusTone: "blue" as const,
+      accent: "blue" as const,
+      actionLabel: "Xem chi tiết",
+      patientId: "BN-9090",
+    },
+    {
+      initials: "QK",
+      name: "Ngô Quốc Khánh",
+      details:
+        "Nam, 25T · Tràn khí màng phổi tự phát · Đã dẫn lưu · Trạng thái ổn định",
+      time: "08:40",
+      status: "Dữ liệu bình thường",
+      statusTone: "blue" as const,
+      accent: "blue" as const,
+      actionLabel: "Xem chi tiết",
+      patientId: "BN-9091",
+    },
+    {
+      initials: "TV",
+      name: "Phạm Thảo Vy",
+      details:
+        "Nữ, 19T · Viêm amygdale cấp · Sốt nhẹ · Chờ cấp đơn thuốc",
+      time: "08:30",
+      status: "Đang chờ",
+      statusTone: "amber" as const,
+      accent: "amber" as const,
+      actionLabel: "Xem chi tiết",
+      patientId: "BN-9092",
+    },
+    {
+      initials: "HL",
+      name: "Lê Hoàng Long",
+      details:
+        "Nam, 42T · Gút cấp · Sưng đau khớp ngón chân cái · Ổn định",
+      time: "08:15",
+      status: "Dữ liệu bình thường",
+      statusTone: "blue" as const,
+      accent: "blue" as const,
+      actionLabel: "Xem chi tiết",
+      patientId: "BN-9093",
+    },
+    {
+      initials: "TM",
+      name: "Nguyễn Tuyết Mai",
+      details:
+        "Nữ, 65T · Thoái hóa khớp gối · Đau nhiều khi vận động · Chờ vật lý trị liệu",
+      time: "08:00",
+      status: "Đang chờ",
+      statusTone: "amber" as const,
+      accent: "amber" as const,
+      actionLabel: "Xem chi tiết",
+      patientId: "BN-9094",
+    },
+    {
+      initials: "HQ",
+      name: "Trịnh Hồng Quân",
+      details:
+        "Nam, 35T · Rối loạn lo âu lan tỏa · Trạng thái bình thường · Tư vấn tâm lý",
+      time: "07:45",
+      status: "Dữ liệu bình thường",
+      statusTone: "blue" as const,
+      accent: "blue" as const,
+      actionLabel: "Xem chi tiết",
+      patientId: "BN-9095",
+    },
+  ]);
 
-  const visibleAppointments = layoutConfig.priorityList
+  const sortedAppointments = layoutConfig.priorityList
     ? [...appointments].sort((left, right) => {
         if (sortMode === "urgent") {
-          const order = { red: 0, slate: 1, green: 2 } as const;
+          const order: Record<string, number> = { red: 0, amber: 1, blue: 2, slate: 1, green: 2 };
 
-          return order[left.statusTone] - order[right.statusTone];
+          return (order[left.statusTone] ?? 2) - (order[right.statusTone] ?? 2);
         }
 
         if (sortMode === "recent") {
@@ -908,6 +1094,14 @@ export default function DoctorDashboardPage() {
       })
     : [];
 
+  const totalItems = sortedAppointments.length;
+  const totalPages = Math.ceil(totalItems / pageSize) || 1;
+  const activePage = Math.min(currentPage, totalPages);
+  const startIndex = (activePage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, totalItems);
+
+  const visibleAppointments = sortedAppointments.slice(startIndex, endIndex);
+
   const openPatientAction = (
     appointment: Appointment,
     action: "detail" | "emergency",
@@ -920,10 +1114,22 @@ export default function DoctorDashboardPage() {
     key: keyof typeof layoutConfig,
     value: boolean,
   ) => {
-    setLayoutConfig((current) => ({
-      ...current,
-      [key]: value,
-    }));
+    setLayoutConfig((current) => {
+      const next = {
+        ...current,
+        [key]: value,
+      };
+
+      const savedSettings = {
+        receivePriorityAlerts: next.floatingAlert,
+        compactSidebar: next.compactSidebar,
+        prioritizePatientList: next.priorityList,
+      };
+      localStorage.setItem("doctor_settings", JSON.stringify(savedSettings));
+      window.dispatchEvent(new Event("doctor_settings_changed"));
+
+      return next;
+    });
   };
 
   const promptOpenActivity = () => {
@@ -934,10 +1140,42 @@ export default function DoctorDashboardPage() {
     setLockNotice("Hãy mở hoạt động để thao tác");
   };
 
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      pages.push(1);
+
+      const start = Math.max(2, activePage - 1);
+      const end = Math.min(totalPages - 1, activePage + 1);
+
+      if (start > 2) {
+        pages.push("...");
+      }
+
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+
+      if (end < totalPages - 1) {
+        pages.push("...");
+      }
+
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
   return (
     <div className="min-h-screen bg-[#f6f8fc] text-slate-900">
       {showLoginSuccess ? <Toast message="Đăng nhập thành công" /> : null}
       {lockNotice ? <LockToast message={lockNotice} /> : null}
+      {actionNotice ? <Toast message={actionNotice} /> : null}
 
       <div className="flex min-h-screen">
         <aside
@@ -1080,10 +1318,10 @@ export default function DoctorDashboardPage() {
           </nav>
 
           <div className="relative mt-auto" ref={profileMenuRef}>
-            {isProfileMenuOpen ? (
-              <div
-                className={`absolute z-30 rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_20px_55px_rgba(15,23,42,0.18)] ${layoutConfig.compactSidebar ? "bottom-[calc(100%+0.5rem)] left-1/2 w-56 -translate-x-1/2" : "bottom-[calc(100%+0.65rem)] left-0 right-0"}`}
-              >
+          {isProfileMenuOpen ? (
+            <div
+              className={`absolute z-30 rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_20px_55px_rgba(15,23,42,0.18)] ${layoutConfig.compactSidebar ? "bottom-0 left-[calc(100%+0.5rem)] w-56" : "bottom-[calc(100%+0.65rem)] left-0 right-0"}`}
+            >
                 <div className="mb-1 px-2 py-1.5">
                   <p className="truncate text-sm font-semibold text-slate-800">
                     BS. Nguyễn Minh Trí
@@ -1164,7 +1402,7 @@ export default function DoctorDashboardPage() {
         </aside>
 
         <main className="flex-1 overflow-hidden px-4 py-4 sm:px-6 lg:px-7 lg:py-5">
-          <div className="relative mx-auto max-w-280">
+          <div className="relative mx-auto max-w-[1800px]">
             {!isAcceptingPatients ? (
               <button
                 type="button"
@@ -1343,7 +1581,7 @@ export default function DoctorDashboardPage() {
                   className="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
                 />
 
-                <div className="relative w-full max-w-3xl animate-alert-modal rounded-[1.75rem] border border-slate-200 bg-white p-6 font-sans shadow-[0_24px_70px_rgba(15,23,42,0.22)] lg:p-7">
+                <div className="relative w-full max-w-5xl animate-alert-modal rounded-[1.75rem] border border-slate-200 bg-white p-6 font-sans shadow-[0_24px_70px_rgba(15,23,42,0.22)] lg:p-7">
                   <button
                     type="button"
                     aria-label="Đóng popup đề xuất chẩn đoán"
@@ -1355,179 +1593,192 @@ export default function DoctorDashboardPage() {
 
                   <div className="flex items-start justify-between gap-4 pr-8">
                     <div>
-                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-600">
-                        Đề xuất chẩn đoán
+                      <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-600">
+                        BÁO CÁO GIÁM SÁT LÂM SÀNG BẰNG AI
                       </p>
                       <h2 className="mt-1 text-[1.55rem] font-bold tracking-[-0.03em] text-slate-900">
-                        Gemini gợi ý các chẩn đoán ưu tiên
+                        Phân tích ca trực &amp; Cảnh báo khẩn cấp bằng Gemini AI
                       </h2>
                     </div>
 
-                    <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-amber-700">
-                      4 đề xuất
+                    <span className="rounded-full bg-rose-100 px-3.5 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-rose-700">
+                      CẢNH BÁO CA TRỰC
                     </span>
                   </div>
 
-                  <div className="mt-5 grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-                    <div className="space-y-4">
-                      <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-                            <Brain className="h-5 w-5" />
+                  {/* Overview Grid */}
+                  <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3.5">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Tải trọng ca trực</div>
+                      <div className="mt-1 text-lg font-extrabold text-rose-600">85% (Rất Cao)</div>
+                    </div>
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3.5">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Ca khẩn cấp cần xử lý</div>
+                      <div className="mt-1 text-lg font-extrabold text-red-600">3 Ca bệnh</div>
+                    </div>
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3.5">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Ca ưu tiên số 1</div>
+                      <div className="mt-1 text-lg font-extrabold text-slate-900">Lê Thị Mai</div>
+                    </div>
+                    <div className="rounded-2xl border border-slate-100 bg-slate-50 p-3.5">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Nhân lực khuyến nghị</div>
+                      <div className="mt-1 text-lg font-extrabold text-emerald-600">1 BS + 2 ĐD</div>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
+                    {/* Left Column: Priority Cases list */}
+                    <div className="space-y-3">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-400">
+                        Danh sách ca cần can thiệp ngay
+                      </p>
+
+                      {/* Case 1: Lê Thị Mai */}
+                      <div className="rounded-2xl border border-rose-200 bg-rose-50/30 p-4 shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-2.5 py-0.5 text-[10px] font-bold uppercase text-rose-700">
+                            🔴 Ưu tiên 1 - NGUY HIỂM
+                          </span>
+                          <span className="text-[11px] font-semibold text-slate-500">BN-9081</span>
+                        </div>
+                        <h4 className="mt-2 text-[15px] font-bold text-slate-900">Lê Thị Mai - Nữ, 62 tuổi</h4>
+                        <p className="mt-1 text-xs text-slate-500">Tiền sử: Tăng huyết áp nguyên phát 5 năm, tuân thủ điều trị kém.</p>
+                        
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2 text-xs">
+                          <div className="rounded-xl bg-white p-2.5 border border-rose-100">
+                            <span className="font-semibold text-rose-700">AI Chẩn đoán:</span>
+                            <p className="mt-0.5 text-slate-700">Cơn tăng huyết áp cấp / Theo dõi tai biến mạch máu não nhẹ (Độ tin cậy: 96%)</p>
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate text-sm font-semibold text-slate-900">
-                              Lê Thị Mai
-                            </div>
-                            <div className="truncate text-xs text-slate-400">
-                              Nữ • 62 tuổi • Tăng huyết áp, đau đầu vùng chẩm
-                            </div>
+                          <div className="rounded-xl bg-white p-2.5 border border-rose-100">
+                            <span className="font-semibold text-rose-700">Chỉ định lâm sàng:</span>
+                            <p className="mt-0.5 text-slate-700">Theo dõi sinh tồn mỗi 5 phút, dùng thuốc hạ áp tĩnh mạch khẩn cấp.</p>
                           </div>
                         </div>
                       </div>
 
-                      <div className="space-y-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-                        {[
-                          [
-                            "Cơn tăng huyết áp cấp",
-                            "Độ phù hợp: 96%",
-                            "emerald",
-                          ],
-                          [
-                            "Tai biến mạch máu não nhẹ cần loại trừ",
-                            "Độ phù hợp: 84%",
-                            "amber",
-                          ],
-                          [
-                            "Đau đầu do tăng huyết áp kèm rối loạn giao cảm",
-                            "Độ phù hợp: 76%",
-                            "slate",
-                          ],
-                          [
-                            "Theo dõi hội chứng mạch vành cấp",
-                            "Độ phù hợp: 62%",
-                            "slate",
-                          ],
-                        ].map(([label, meta, tone], index) => (
-                          <div
-                            key={label}
-                            className={`rounded-2xl border bg-white p-4 shadow-sm ${index === 0 ? "border-emerald-200" : "border-slate-100"}`}
-                          >
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="min-w-0 flex-1">
-                                <div className="text-[15px] font-semibold text-slate-800">
-                                  {index + 1}. {label}
-                                </div>
-                                <div className="mt-1 text-xs text-slate-400">
-                                  {meta}
-                                </div>
-                              </div>
-
-                              <span
-                                className={`rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-[0.12em] ${tone === "emerald" ? "bg-emerald-100 text-emerald-700" : tone === "amber" ? "bg-amber-100 text-amber-700" : "bg-slate-100 text-slate-600"}`}
-                              >
-                                Ưu tiên
-                              </span>
-                            </div>
+                      {/* Case 2: Nguyễn Văn Hùng */}
+                      <div className="rounded-2xl border border-amber-200 bg-amber-50/20 p-4 shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-0.5 text-[10px] font-bold uppercase text-amber-700">
+                            🟡 Ưu tiên 2 - THEO DÕI SÁT
+                          </span>
+                          <span className="text-[11px] font-semibold text-slate-500">BN-9084</span>
+                        </div>
+                        <h4 className="mt-2 text-[15px] font-bold text-slate-900">Nguyễn Văn Hùng - Nam, 45 tuổi</h4>
+                        <p className="mt-1 text-xs text-slate-500">Triệu chứng: Đau hố chậu phải dữ dội, sốt nhẹ 38.2°C, có phản ứng thành bụng.</p>
+                        
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2 text-xs">
+                          <div className="rounded-xl bg-white p-2.5 border border-amber-100">
+                            <span className="font-semibold text-amber-700">AI Chẩn đoán:</span>
+                            <p className="mt-0.5 text-slate-700">Theo dõi viêm ruột thừa cấp giờ thứ 12 (Độ tin cậy: 88%)</p>
                           </div>
-                        ))}
+                          <div className="rounded-xl bg-white p-2.5 border border-amber-100">
+                            <span className="font-semibold text-amber-700">Chỉ định lâm sàng:</span>
+                            <p className="mt-0.5 text-slate-700">Siêu âm ổ bụng khẩn cấp, nhịn ăn uống chuẩn bị phẫu thuật ngoại khoa.</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Case 3: Trần Quốc Bảo */}
+                      <div className="rounded-2xl border border-sky-200 bg-sky-50/20 p-4 shadow-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="inline-flex items-center gap-1.5 rounded-full bg-sky-100 px-2.5 py-0.5 text-[10px] font-bold uppercase text-sky-700">
+                            🔵 Ưu tiên 3 - ĐANG THEO DÕI
+                          </span>
+                          <span className="text-[11px] font-semibold text-slate-500">BN-9083</span>
+                        </div>
+                        <h4 className="mt-2 text-[15px] font-bold text-slate-900">Trần Quốc Bảo - Nam, 32 tuổi</h4>
+                        <p className="mt-1 text-xs text-slate-500">Tình trạng: Nhập viện do tai nạn giao thông chấn thương vùng ngực.</p>
+                        
+                        <div className="mt-3 grid gap-2 sm:grid-cols-2 text-xs">
+                          <div className="rounded-xl bg-white p-2.5 border border-sky-100">
+                            <span className="font-semibold text-sky-700">AI Chẩn đoán:</span>
+                            <p className="mt-0.5 text-slate-700">Theo dõi sốc mất máu / Tràn khí màng phổi nhẹ (Độ tin cậy: 92%)</p>
+                          </div>
+                          <div className="rounded-xl bg-white p-2.5 border border-sky-100">
+                            <span className="font-semibold text-sky-700">Chỉ định lâm sàng:</span>
+                            <p className="mt-0.5 text-slate-700">Theo dõi sát SpO2, lập 2 đường truyền tĩnh mạch lớn bù dịch đẳng trương.</p>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
+                    {/* Right Column: AI Insight and Shift actions */}
                     <div className="space-y-4">
-                      <div className="rounded-2xl border border-cyan-100 bg-cyan-50 p-4">
-                        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-cyan-600">
-                          AI nhận định
+                      <div className="rounded-2xl border border-emerald-100 bg-emerald-50/40 p-4">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-emerald-700">
+                          Nhận định tổng hợp ca trực
                         </p>
-                        <p className="mt-2 text-sm leading-6 text-slate-700">
-                          Dựa trên huyết áp 180/120 mmHg, đau vùng chẩm và nhịp
-                          tim tăng, hệ thống ưu tiên cơn tăng huyết áp cấp, đồng
-                          thời đề nghị loại trừ biến cố thần kinh cấp tính.
+                        <p className="mt-2 text-xs leading-6 text-slate-700">
+                          Gemini đã đối chiếu toàn bộ 15 hồ sơ bệnh án trong ca trực. Ghi nhận 3 trường hợp nguy cơ tiến triển khẩn cấp cần can thiệp. Đề xuất bác sĩ tập trung kiểm soát huyết áp cho BN-9081 Lê Thị Mai trước để hạn chế nguy cơ đột quỵ tai biến mạch máu não, song song đó điều phối nhân sự chuẩn bị phòng mổ cho BN-9084 Nguyễn Văn Hùng phòng ngừa vỡ ruột thừa.
                         </p>
                       </div>
 
                       <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm">
                         <div className="flex items-center justify-between gap-3">
                           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                            Gợi ý hành động
+                            Gợi ý điều phối nhân sự
                           </p>
                           <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
-                            3 bước
+                            Ca trực
                           </span>
                         </div>
 
-                        <div className="mt-3 space-y-3">
-                          <div className="flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-3">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-                              <ClipboardList className="h-4 w-4" />
+                        <div className="mt-3 space-y-2.5">
+                          <div className="flex items-center gap-3 rounded-xl bg-slate-50 px-3 py-2.5">
+                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-rose-100 text-rose-700 text-xs font-bold">
+                              1
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="text-sm font-medium text-slate-700">
-                                Xác nhận chẩn đoán sơ bộ
+                              <div className="text-xs font-semibold text-slate-800">
+                                Ê-kíp Hồi sức cấp cứu
                               </div>
-                              <div className="text-xs text-slate-400">
-                                So sánh với bệnh án nền
+                              <div className="text-[11px] text-slate-400">
+                                Theo dõi và tiêm hạ áp tĩnh mạch cho Lê Thị Mai
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-3">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-cyan-100 text-cyan-700">
-                              <Sparkles className="h-4 w-4" />
+                          <div className="flex items-center gap-3 rounded-xl bg-slate-50 px-3 py-2.5">
+                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700 text-xs font-bold">
+                              2
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="text-sm font-medium text-slate-700">
-                                Mở hội chẩn nếu có dấu hiệu thần kinh
+                              <div className="text-xs font-semibold text-slate-800">
+                                Bố trí siêu âm đầu giường
                               </div>
-                              <div className="text-xs text-slate-400">
-                                Ưu tiên ngay
+                              <div className="text-[11px] text-slate-400">
+                                Siêu âm khẩn cấp ổ bụng cho Nguyễn Văn Hùng
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-3 rounded-2xl bg-slate-50 px-3 py-3">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-                              <Activity className="h-4 w-4" />
+                          <div className="flex items-center gap-3 rounded-xl bg-slate-50 px-3 py-2.5">
+                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky-100 text-sky-700 text-xs font-bold">
+                              3
                             </div>
                             <div className="min-w-0 flex-1">
-                              <div className="text-sm font-medium text-slate-700">
-                                Theo dõi vitals mỗi 5 phút
+                              <div className="text-xs font-semibold text-slate-800">
+                                Bàn giao ca trực phụ
                               </div>
-                              <div className="text-xs text-slate-400">
-                                Bắt buộc
+                              <div className="text-[11px] text-slate-400">
+                                Kê đơn xuất viện cho các ca ổn định (BN-9082)
                               </div>
                             </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
-                        <div className="flex items-start gap-3">
-                          <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-                            <Sparkles className="h-4 w-4" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-semibold text-slate-800">
-                              Ưu tiên 1: Lê Thị Mai
-                            </p>
-                            <p className="mt-1 text-sm leading-6 text-slate-600">
-                              Cần theo dõi chỉ số sinh tồn ngay, chuyển sang
-                              luồng khẩn cấp nếu có triệu chứng thần kinh.
-                            </p>
                           </div>
                         </div>
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-5 flex gap-3">
+                  <div className="mt-6 flex gap-3">
                     <button
                       type="button"
                       onClick={() => {
                         setIsDiagnosisPopupOpen(false);
-                        setActionNotice("Áp dụng chẩn đoán thành công");
+                        setActionNotice("Áp dụng kế hoạch điều phối ca trực thành công");
                       }}
                       className="flex-1 rounded-2xl bg-teal-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(13,148,136,0.24)] transition-all hover:-translate-y-0.5 hover:bg-teal-700"
                     >
-                      Áp dụng chẩn đoán
+                      Áp dụng kế hoạch điều phối ca trực
                     </button>
 
                     <button
@@ -1910,6 +2161,85 @@ export default function DoctorDashboardPage() {
               ))}
             </section>
 
+            <div className="mt-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-100 pt-5">
+              <div className="flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Hiển thị:</span>
+                  <div className="relative">
+                    <select
+                      value={pageSize}
+                      onChange={(e) => {
+                        setPageSize(Number(e.target.value));
+                        setCurrentPage(1);
+                      }}
+                      className="appearance-none rounded-full border border-emerald-100 bg-white pl-4 pr-9 py-1.5 text-xs font-bold text-slate-700 shadow-sm outline-none cursor-pointer transition-all hover:border-emerald-300 hover:bg-emerald-50/30 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                    >
+                      <option value={5}>5 ca / trang</option>
+                      <option value={10}>10 ca / trang</option>
+                      <option value={20}>20 ca / trang</option>
+                      <option value={30}>30 ca / trang</option>
+                    </select>
+                    <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+                      <ChevronDown className="h-3.5 w-3.5" />
+                    </div>
+                  </div>
+                </div>
+                <span className="text-xs font-medium text-slate-400">
+                  Hiển thị {totalItems > 0 ? startIndex + 1 : 0} - {endIndex} trong số {totalItems} ca bệnh
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  disabled={activePage === 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition-all hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-40 disabled:hover:bg-white disabled:hover:border-slate-200 disabled:hover:text-slate-500 disabled:cursor-not-allowed"
+                  title="Trang trước"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+
+                {getPageNumbers().map((page, index) => {
+                  if (page === "...") {
+                    return (
+                      <span
+                        key={`ellipsis-${index}`}
+                        className="inline-flex h-8 w-8 items-center justify-center text-xs font-semibold text-slate-400"
+                      >
+                        ...
+                      </span>
+                    );
+                  }
+
+                  return (
+                    <button
+                      key={`page-${page}`}
+                      type="button"
+                      onClick={() => setCurrentPage(Number(page))}
+                      className={`inline-flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all ${
+                        activePage === page
+                          ? "bg-emerald-500 text-white shadow-[0_4px_12px_rgba(16,185,129,0.25)]"
+                          : "border border-slate-200 bg-white text-slate-600 hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  );
+                })}
+
+                <button
+                  type="button"
+                  disabled={activePage === totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition-all hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 disabled:opacity-40 disabled:hover:bg-white disabled:hover:border-slate-200 disabled:hover:text-slate-500 disabled:cursor-not-allowed"
+                  title="Trang sau"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
             {selectedAppointment && selectedAction === "detail" ? (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
                 <div
@@ -2098,6 +2428,28 @@ export default function DoctorDashboardPage() {
                   <div className="mt-5 flex gap-3">
                     <button
                       type="button"
+                      onClick={() => {
+                        if (!selectedAppointment) return;
+                        setAppointments((prev) =>
+                          prev.map((app) => {
+                            if (app.patientId === selectedAppointment.patientId) {
+                              return {
+                                ...app,
+                                status: "Đang cấp cứu...",
+                                statusTone: "red" as const,
+                              };
+                            }
+                            return app;
+                          })
+                        );
+                        setActionNotice(
+                          `Kích hoạt quy trình khẩn cấp cho bệnh nhân ${selectedAppointment.name} thành công!`
+                        );
+                        setSelectedAppointment(null);
+                        setTimeout(() => {
+                          router.push("/doctor/consult");
+                        }, 1200);
+                      }}
                       className="flex-1 rounded-2xl bg-red-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(239,68,68,0.22)] transition-all hover:-translate-y-0.5 hover:bg-red-700"
                     >
                       Kích hoạt khẩn cấp
@@ -2114,29 +2466,39 @@ export default function DoctorDashboardPage() {
               </div>
             ) : null}
 
-            <div className="fixed bottom-4 right-4 z-40 w-md max-w-[calc(100vw-2rem)] animate-alert-pulse rounded-[1.35rem] border border-rose-200 bg-white p-4 shadow-[0_18px_40px_rgba(15,23,42,0.1)] ring-1 ring-rose-100">
-              <div className="flex items-start gap-3">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-500 shadow-inner shadow-red-100">
-                  <AlertTriangle className="h-5 w-5" />
-                </div>
-                <div className="min-w-0 flex-1 pt-0.5">
-                  <p className="font-sans text-[10px] font-bold uppercase tracking-[0.14em] text-red-500">
-                    Hệ thống phát hiện AI
-                  </p>
-                  <p className="mt-1 font-sans text-[15px] font-medium leading-6 text-slate-700">
-                    Cảnh báo nhịp tim bất thường bệnh nhân Lê Thị Mai - Cần xử
-                    lý khẩn cấp!
-                  </p>
-                </div>
+            {layoutConfig.floatingAlert && !isDismissedQuickAlert ? (
+              <div className="fixed bottom-4 right-4 z-40 w-md max-w-[calc(100vw-2rem)] animate-alert-pulse rounded-[1.35rem] border border-rose-200 bg-white p-4 shadow-[0_18px_40px_rgba(15,23,42,0.1)] ring-1 ring-rose-100">
                 <button
                   type="button"
-                  onClick={() => setIsQuickAlertOpen(true)}
-                  className="rounded-2xl bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(16,185,129,0.25)] transition-all hover:-translate-y-0.5 hover:bg-emerald-600 hover:shadow-[0_14px_24px_rgba(16,185,129,0.32)]"
+                  aria-label="Đóng cảnh báo nhanh"
+                  onClick={() => setIsDismissedQuickAlert(true)}
+                  className="absolute top-3 right-3 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition-colors"
                 >
-                  Xem nhanh
+                  <X className="h-3.5 w-3.5" />
                 </button>
+                <div className="flex items-start gap-3 pr-5">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-500 shadow-inner shadow-red-100">
+                    <AlertTriangle className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1 pt-0.5">
+                    <p className="font-sans text-[10px] font-bold uppercase tracking-[0.14em] text-red-500">
+                      Hệ thống phát hiện AI
+                    </p>
+                    <p className="mt-1 font-sans text-[15px] font-medium leading-6 text-slate-700">
+                      Cảnh báo nhịp tim bất thường bệnh nhân Lê Thị Mai - Cần xử
+                      lý khẩn cấp!
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsQuickAlertOpen(true)}
+                    className="rounded-2xl bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_10px_20px_rgba(16,185,129,0.25)] transition-all hover:-translate-y-0.5 hover:bg-emerald-600 hover:shadow-[0_14px_24px_rgba(16,185,129,0.32)]"
+                  >
+                    Xem nhanh
+                  </button>
+                </div>
               </div>
-            </div>
+            ) : null}
 
             {isQuickAlertOpen ? (
               <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

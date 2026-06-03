@@ -24,7 +24,7 @@ export default function PrescriptionsPage() {
         />
 
         <main className="flex-1 overflow-hidden px-4 py-4 sm:px-6 lg:px-7 lg:py-5">
-          <div className="relative mx-auto max-w-[1360px]">
+          <div className="relative mx-auto max-w-[1800px]">
             <DoctorOfflineNotice />
             <PrescriptionShell />
           </div>

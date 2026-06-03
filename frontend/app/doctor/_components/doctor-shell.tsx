@@ -97,6 +97,58 @@ export function AppSidebar({
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
 
+  const [settings, setSettings] = useState({
+    receivePriorityAlerts: true,
+    compactSidebar: false,
+    prioritizePatientList: true,
+  });
+
+  const [tempSettings, setTempSettings] = useState({
+    receivePriorityAlerts: true,
+    compactSidebar: false,
+    prioritizePatientList: true,
+  });
+
+  useEffect(() => {
+    const loadSettings = () => {
+      const saved = localStorage.getItem("doctor_settings");
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          setSettings(parsed);
+          setTempSettings(parsed);
+        } catch (e) {
+          // ignore
+        }
+      }
+    };
+
+    loadSettings();
+    window.addEventListener("doctor_settings_changed", loadSettings);
+    return () => {
+      window.removeEventListener("doctor_settings_changed", loadSettings);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isSettingsPopupOpen) {
+      setTempSettings(settings);
+    }
+  }, [isSettingsPopupOpen, settings]);
+
+  const isCompact = settings.compactSidebar || compact;
+
+  const updateSetting = (key: keyof typeof settings, value: boolean) => {
+    const nextSettings = {
+      ...settings,
+      [key]: value,
+    };
+    setSettings(nextSettings);
+    setTempSettings(nextSettings);
+    localStorage.setItem("doctor_settings", JSON.stringify(nextSettings));
+    window.dispatchEvent(new Event("doctor_settings_changed"));
+  };
+
   const showSuccessNotice = (actionName: string) => {
     setActionNotice(`${actionName} thành công`);
   };
@@ -145,13 +197,13 @@ export function AppSidebar({
       ) : null}
 
       <aside
-        className={`hidden shrink-0 border-r border-slate-200 bg-white py-4 shadow-[0_0_35px_rgba(15,23,42,0.03)] lg:flex lg:flex-col relative z-50 pointer-events-auto ${compact ? "w-20 px-2" : "w-62.5 px-4"}`}
+        className={`hidden shrink-0 border-r border-slate-200 bg-white py-4 shadow-[0_0_35px_rgba(15,23,42,0.03)] lg:flex lg:flex-col relative z-50 pointer-events-auto ${isCompact ? "w-20 px-2" : "w-62.5 px-4"}`}
       >
         <div className="mb-4 flex items-start gap-3 px-2">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-500 text-white shadow-[0_10px_24px_rgba(16,185,129,0.25)]">
             <Activity className="h-5 w-5" />
           </div>
-          {compact ? null : (
+          {isCompact ? null : (
             <div>
               <div className="text-lg font-bold leading-none text-slate-900">
                 MedOS.io
@@ -164,7 +216,7 @@ export function AppSidebar({
         </div>
 
         <div className="mb-6 rounded-2xl border border-slate-200 bg-slate-50 p-3 shadow-sm">
-          {compact ? (
+          {isCompact ? (
             <div className="flex items-center justify-center">
               <button
                 type="button"
@@ -234,7 +286,7 @@ export function AppSidebar({
           )}
         </div>
 
-        {compact ? null : (
+        {isCompact ? null : (
           <div className="mb-3 px-2 text-xs font-bold uppercase tracking-[0.2em] text-slate-400">
             Danh mục
           </div>
@@ -245,7 +297,7 @@ export function AppSidebar({
             icon={LayoutDashboard}
             label="Tổng quan ca trực"
             active={activeSection === "overview"}
-            compact={compact}
+            compact={isCompact}
             onClick={() => {
               onNavigate?.("overview");
               router.push("/doctor");
@@ -255,7 +307,7 @@ export function AppSidebar({
             icon={Users}
             label="Quản lý bệnh nhân"
             active={activeSection === "patients"}
-            compact={compact}
+            compact={isCompact}
             onClick={() => {
               onNavigate?.("patients");
               router.push("/doctor/patients");
@@ -265,7 +317,7 @@ export function AppSidebar({
             icon={MessagesSquare}
             label="Hội chẩn trực tuyến"
             active={activeSection === "consult"}
-            compact={compact}
+            compact={isCompact}
             onClick={() => {
               onNavigate?.("consult");
               router.push("/doctor/consult");
@@ -276,7 +328,7 @@ export function AppSidebar({
             icon={FileText}
             label="Đơn thuốc điện tử"
             active={activeSection === "prescriptions"}
-            compact={compact}
+            compact={isCompact}
             onClick={() => {
               onNavigate?.("prescriptions");
               router.push("/doctor/prescriptions");
@@ -288,7 +340,7 @@ export function AppSidebar({
         <div className="relative mt-auto" ref={profileMenuRef}>
           {isProfileMenuOpen ? (
             <div
-              className={`absolute z-30 rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_20px_55px_rgba(15,23,42,0.18)] ${compact ? "bottom-[calc(100%+0.5rem)] left-1/2 w-56 -translate-x-1/2" : "bottom-[calc(100%+0.65rem)] left-0 right-0"}`}
+              className={`absolute z-30 rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_20px_55px_rgba(15,23,42,0.18)] ${isCompact ? "bottom-0 left-[calc(100%+0.5rem)] w-56" : "bottom-[calc(100%+0.65rem)] left-0 right-0"}`}
             >
               <div className="mb-1 px-2 py-1.5">
                 <p className="truncate text-sm font-semibold text-slate-800">
@@ -342,7 +394,7 @@ export function AppSidebar({
           <button
             type="button"
             onClick={() => setIsProfileMenuOpen((prev) => !prev)}
-            className={`w-full rounded-3xl border border-slate-200 bg-slate-50 text-left shadow-sm transition-colors hover:bg-slate-100 ${compact ? "p-2" : "p-3"}`}
+            className={`w-full rounded-3xl border border-slate-200 bg-slate-50 text-left shadow-sm transition-colors hover:bg-slate-100 ${isCompact ? "p-2" : "p-3"}`}
             aria-haspopup="menu"
             aria-expanded={isProfileMenuOpen}
             aria-label="Mở menu tài khoản"
@@ -351,7 +403,7 @@ export function AppSidebar({
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-100 text-sm font-bold text-emerald-700">
                 MT
               </div>
-              {compact ? null : (
+              {isCompact ? null : (
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-sm font-semibold text-slate-800">
                     BS. Nguyễn Minh Trí
@@ -480,41 +532,68 @@ export function AppSidebar({
             </h2>
 
             <div className="mt-4 space-y-3 rounded-2xl border border-slate-100 bg-slate-50 p-4">
-              <div className="rounded-2xl bg-white px-4 py-3 shadow-sm">
-                <p className="text-sm font-semibold text-slate-800">
-                  Nhận cảnh báo ưu tiên
-                </p>
-                <p className="text-xs text-slate-400">
-                  Cảnh báo ca nguy hiểm theo thời gian thực
-                </p>
-              </div>
+              <label className="flex items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm cursor-pointer select-none">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-slate-800">
+                    Nhận cảnh báo ưu tiên
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    Cảnh báo ca nguy hiểm theo thời gian thực
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={settings.receivePriorityAlerts}
+                  onChange={(e) =>
+                    updateSetting("receivePriorityAlerts", e.target.checked)
+                  }
+                  className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 accent-emerald-500"
+                />
+              </label>
 
-              <div className="rounded-2xl bg-white px-4 py-3 shadow-sm">
-                <p className="text-sm font-semibold text-slate-800">
-                  Chế độ hiển thị sidebar
-                </p>
-                <p className="text-xs text-slate-400">
-                  Thu gọn hoặc mở rộng theo tác vụ hiện tại
-                </p>
-              </div>
+              <label className="flex items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm cursor-pointer select-none">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-slate-800">
+                    Chế độ hiển thị sidebar
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    Hiển thị thanh bên ở chế độ compact
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={settings.compactSidebar}
+                  onChange={(e) =>
+                    updateSetting("compactSidebar", e.target.checked)
+                  }
+                  className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 accent-emerald-500"
+                />
+              </label>
 
-              <div className="rounded-2xl bg-white px-4 py-3 shadow-sm">
-                <p className="text-sm font-semibold text-slate-800">
-                  Ưu tiên danh sách ca bệnh
-                </p>
-                <p className="text-xs text-slate-400">
-                  Tự động ưu tiên ca nguy hiểm lên đầu
-                </p>
-              </div>
+              <label className="flex items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 shadow-sm cursor-pointer select-none">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-slate-800">
+                    Ưu tiên danh sách ca bệnh
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    Tự động ưu tiên ca nguy hiểm lên đầu
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={settings.prioritizePatientList}
+                  onChange={(e) =>
+                    updateSetting("prioritizePatientList", e.target.checked)
+                  }
+                  className="h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 accent-emerald-500"
+                />
+              </label>
             </div>
 
             <div className="mt-5 flex gap-3">
               <button
                 type="button"
-                onClick={() => {
-                  setIsSettingsPopupOpen(false);
-                  showSuccessNotice("Lưu cài đặt");
-                }}
+                onClick={() => setIsSettingsPopupOpen(false)}
                 className="flex-1 rounded-2xl bg-teal-600 px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_24px_rgba(13,148,136,0.24)] transition-all hover:-translate-y-0.5 hover:bg-teal-700"
               >
                 Lưu cài đặt
