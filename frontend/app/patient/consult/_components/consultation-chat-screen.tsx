@@ -71,7 +71,17 @@ function detectEmergency(text: string) {
 }
 
 function isPersistableConsultCase(caseId: string) {
-  return caseId === "new" || /^(ai|doctor|emergency)-\d+$/.test(caseId);
+  const defaultMockIds = [
+    "headache-3d",
+    "fever-cough",
+    "follow-up-meds",
+    "emergency-chest-pain",
+  ];
+  return (
+    caseId === "new" ||
+    /^(ai|doctor|emergency)-\d+$/.test(caseId) ||
+    defaultMockIds.includes(caseId)
+  );
 }
 
 function persistOpenedConsultCase(consultCase: ConsultCase) {
