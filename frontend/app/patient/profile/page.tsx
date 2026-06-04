@@ -39,6 +39,8 @@ type ActiveSheet =
   | "health-record"
   | "medical-files"
   | "family"
+  | "family-add"
+  | "family-health"
   | "security"
   | "change-password"
   | "two-factor"
@@ -98,10 +100,72 @@ const medicalFileItems = [
   { label: "Chẩn đoán", icon: Stethoscope, desc: "Tăng huyết áp · 20/05/2026", color: "bg-[#fce7f3] text-[#db2777]" },
 ];
 
-const familyMembers = [
-  { name: "Tôi", role: "Chủ hồ sơ", avatar: "👨", active: true },
-  { name: "Trần Thu H", role: "Vợ · Thai kỳ", avatar: "👩", active: false },
-  { name: "Nguyễn Minh An", role: "Con trai · 3 tuổi", avatar: "👦", active: false },
+type FamilyMember = {
+  id: string;
+  name: string;
+  role: string;
+  avatar: string;
+  active: boolean;
+  health: {
+    bloodType: string;
+    height: string;
+    weight: string;
+    bmi: string;
+    allergy: string;
+    disease: string;
+    medicine: string;
+  };
+};
+
+const initialFamilyMembers: FamilyMember[] = [
+  {
+    id: "1",
+    name: "Tôi",
+    role: "Chủ hồ sơ",
+    avatar: "👨",
+    active: true,
+    health: {
+      bloodType: "O+",
+      height: "170 cm",
+      weight: "68 kg",
+      bmi: "23.5 (Bình thường)",
+      allergy: "Penicillin",
+      disease: "Tăng huyết áp",
+      medicine: "2 loại (Amlodipine...)",
+    },
+  },
+  {
+    id: "2",
+    name: "Trần Thu H",
+    role: "Vợ · Thai kỳ",
+    avatar: "👩",
+    active: false,
+    health: {
+      bloodType: "A+",
+      height: "160 cm",
+      weight: "58 kg",
+      bmi: "22.6 (Bình thường)",
+      allergy: "Không",
+      disease: "Không",
+      medicine: "Sắt, Canxi",
+    },
+  },
+  {
+    id: "3",
+    name: "Nguyễn Minh An",
+    role: "Con trai · 3 tuổi",
+    avatar: "👦",
+    active: false,
+    health: {
+      bloodType: "O+",
+      height: "95 cm",
+      weight: "14 kg",
+      bmi: "15.5 (Bình thường)",
+      allergy: "Hải sản",
+      disease: "Không",
+      medicine: "Không",
+    },
+  },
 ];
 
 const aiSettings: AISetting[] = [
@@ -142,6 +206,9 @@ export default function PatientProfilePage() {
   const [profileAddress, setProfileAddress] = useState("Thanh Xuân, Hà Nội");
   const [profileEmergency, setProfileEmergency] = useState("Trần Thu H - 0912 345 678");
   const [profileGender, setProfileGender] = useState("Nam");
+
+  const [familyMembers, setFamilyMembers] = useState<FamilyMember[]>(initialFamilyMembers);
+  const [selectedFamilyMember, setSelectedFamilyMember] = useState<FamilyMember | null>(null);
 
   const getAge = (dobString: string) => {
     try {
@@ -192,6 +259,17 @@ export default function PatientProfilePage() {
 
       const savedGender = localStorage.getItem("profileGender");
       if (savedGender !== null) setProfileGender(savedGender);
+
+      const savedFamily = localStorage.getItem("familyMembers");
+      if (savedFamily !== null) {
+        try {
+          setFamilyMembers(JSON.parse(savedFamily));
+        } catch (e) {
+          console.error("Failed to parse familyMembers", e);
+        }
+      } else {
+        localStorage.setItem("familyMembers", JSON.stringify(initialFamilyMembers));
+      }
     }
   }, []);
 
@@ -220,6 +298,24 @@ export default function PatientProfilePage() {
       showNotice("Không thể sao chép lúc này.");
     }
   };
+
+  const activeMember = familyMembers.find((m) => m.active) || familyMembers[0] || initialFamilyMembers[0];
+
+  const dynamicHealthCards = [
+    { label: "Nhóm máu", value: activeMember?.health?.bloodType || "O+", icon: "🩸", color: "bg-[#fee2e2] text-[#dc2626]" },
+    { label: "Chiều cao", value: activeMember?.health?.height || "170 cm", icon: "📏", color: "bg-[#dbeafe] text-[#2563eb]" },
+    { label: "Cân nặng", value: activeMember?.health?.weight || "68 kg", icon: "⚖️", color: "bg-[#fef9c3] text-[#ca8a04]" },
+    {
+      label: "BMI",
+      value: activeMember?.health?.bmi?.split(" ")[0] || "23.5",
+      subLabel: activeMember?.health?.bmi?.includes("(") ? activeMember.health.bmi.match(/\(([^)]+)\)/)?.[1] : "Bình thường",
+      icon: "💪",
+      color: "bg-[#dcfce7] text-[#16a34a]"
+    },
+    { label: "Dị ứng", value: activeMember?.health?.allergy || "Penicillin", icon: "⚠️", color: "bg-[#ffedd5] text-[#ea580c]" },
+    { label: "Bệnh nền", value: activeMember?.health?.disease || "Tăng huyết áp", icon: "❤️", color: "bg-[#fce7f3] text-[#db2777]" },
+    { label: "Thuốc đang dùng", value: activeMember?.health?.medicine || "2 loại", icon: "💊", color: "bg-[#ede9fe] text-[#7c3aed]" },
+  ];
 
   return (
     <main className="flex h-full min-h-0 justify-center bg-[#e9f5ed] px-2 py-2 sm:px-4 sm:py-5">
@@ -296,9 +392,14 @@ export default function PatientProfilePage() {
         <section className="min-h-0 flex-1 overflow-y-auto px-4 pb-28 pt-4 overscroll-contain">
 
           {/* Section 1: Hồ sơ sức khỏe */}
-          <SectionHeader icon="❤️" title="Hồ sơ sức khỏe" onAction={() => setActiveSheet("health-record")} actionLabel="Sửa" />
+          <SectionHeader
+            icon="❤️"
+            title={activeMember?.id === "1" ? "Hồ sơ sức khỏe" : `Sức khỏe của ${activeMember?.name}`}
+            onAction={() => setActiveSheet("health-record")}
+            actionLabel="Sửa"
+          />
           <div className="mt-3 grid grid-cols-2 gap-2.5">
-            {healthCards.map((card) => (
+            {dynamicHealthCards.map((card) => (
               <div
                 key={card.label}
                 className="rounded-[22px] border border-[#d8eadf] bg-white px-4 py-3.5 shadow-[0_6px_18px_rgba(15,23,42,0.05)]"
@@ -400,7 +501,7 @@ export default function PatientProfilePage() {
           </div>
 
           {/* Section 5: Theo dõi sức khỏe */}
-          <SectionHeader icon="📊" title="Sức khỏe của tôi" className="mt-7" />
+          <SectionHeader icon="📊" title={activeMember?.id === "1" ? "Sức khỏe của tôi" : `Sức khỏe của ${activeMember?.name}`} className="mt-7" />
           <div className="mt-3 overflow-hidden rounded-[22px] border border-[#d8eadf] bg-white shadow-[0_6px_18px_rgba(15,23,42,0.05)]">
             <div className="px-4 py-3 border-b border-[#f0f4f8]">
               <p className="text-[12px] font-semibold text-[#6b7280] uppercase tracking-[0.1em]">
@@ -408,9 +509,9 @@ export default function PatientProfilePage() {
               </p>
             </div>
             {[
-              { label: "Cân nặng", value: "68 kg", trend: "→", color: "text-[#6b7280]", dot: "bg-[#94a3b8]" },
-              { label: "Huyết áp", value: "125/80", trend: "↑ nhẹ", color: "text-[#ca8a04]", dot: "bg-[#fbbf24]" },
-              { label: "Nhịp tim", value: "72 bpm", trend: "Ổn định", color: "text-[#16a34a]", dot: "bg-[#4ade80]" },
+              { label: "Cân nặng", value: activeMember?.health?.weight || "68 kg", trend: "→", color: "text-[#6b7280]", dot: "bg-[#94a3b8]" },
+              { label: "Huyết áp", value: activeMember?.id === "1" ? "125/80" : (activeMember?.id === "2" ? "110/70" : "90/60"), trend: "Ổn định", color: "text-[#16a34a]", dot: "bg-[#4ade80]" },
+              { label: "Nhịp tim", value: activeMember?.id === "1" ? "72 bpm" : (activeMember?.id === "2" ? "78 bpm" : "95 bpm"), trend: "Ổn định", color: "text-[#16a34a]", dot: "bg-[#4ade80]" },
             ].map((metric, i, arr) => (
               <div
                 key={metric.label}
@@ -438,9 +539,16 @@ export default function PatientProfilePage() {
           <div className="mt-3 flex gap-2.5 overflow-x-auto pb-1 [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
             {familyMembers.map((member) => (
               <button
-                key={member.name}
+                key={member.id}
                 type="button"
-                onClick={() => setActiveSheet("family")}
+                onClick={() => {
+                  setFamilyMembers((prev) => {
+                    const next = prev.map((m) => ({ ...m, active: m.id === member.id }));
+                    localStorage.setItem("familyMembers", JSON.stringify(next));
+                    return next;
+                  });
+                  showNotice(`Đã chuyển sang xem hồ sơ của ${member.name}`);
+                }}
                 className={`shrink-0 rounded-[22px] border px-4 py-3.5 text-center shadow-[0_6px_18px_rgba(15,23,42,0.05)] transition hover:-translate-y-0.5 ${
                   member.active
                     ? "border-[#16a34a] bg-[#16a34a] text-white"
@@ -458,7 +566,7 @@ export default function PatientProfilePage() {
             ))}
             <button
               type="button"
-              onClick={() => setActiveSheet("family")}
+              onClick={() => setActiveSheet("family-add")}
               className="shrink-0 rounded-[22px] border border-dashed border-[#a7d9b7] bg-[#f0fbf4] px-4 py-3.5 text-center transition hover:-translate-y-0.5"
             >
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#dcfce7] text-[#16a34a] mx-auto text-lg font-bold">+</div>
@@ -585,6 +693,12 @@ export default function PatientProfilePage() {
                   localStorage.setItem("profileEmergency", updated.emergency);
                   localStorage.setItem("profileGender", updated.gender);
 
+                  setFamilyMembers((prev) => {
+                    const next = prev.map((m) => m.id === "1" ? { ...m, name: updated.name } : m);
+                    localStorage.setItem("familyMembers", JSON.stringify(next));
+                    return next;
+                  });
+
                   setActiveSheet(null);
                   showNotice("Đã lưu thông tin cá nhân.");
                 }}
@@ -594,13 +708,72 @@ export default function PatientProfilePage() {
               <QRSheet onClose={() => setActiveSheet(null)} onCopy={copyId} />
             )}
             {activeSheet === "health-record" && (
-              <HealthRecordSheet onClose={() => setActiveSheet(null)} onSave={() => { setActiveSheet(null); showNotice("Đã cập nhật hồ sơ sức khỏe."); }} />
+              <HealthRecordSheet
+                member={activeMember}
+                onClose={() => setActiveSheet(null)}
+                onSave={(updatedHealth) => {
+                  setFamilyMembers((prev) => {
+                    const next = prev.map((m) => m.id === activeMember.id ? { ...m, health: updatedHealth } : m);
+                    localStorage.setItem("familyMembers", JSON.stringify(next));
+                    return next;
+                  });
+                  setActiveSheet(null);
+                  showNotice(`Đã cập nhật chỉ số sức khỏe của ${activeMember.name}`);
+                }}
+              />
             )}
             {activeSheet === "medical-files" && (
               <MedicalFilesSheet onClose={() => setActiveSheet(null)} />
             )}
             {activeSheet === "family" && (
-              <FamilySheet onClose={() => setActiveSheet(null)} onAdd={() => showNotice("Đã thêm thành viên gia đình (mô phỏng).")} />
+              <FamilySheet
+                familyMembers={familyMembers}
+                onClose={() => setActiveSheet(null)}
+                onAddClick={() => setActiveSheet("family-add")}
+                onDeleteMember={(id) => {
+                  setFamilyMembers((prev) => {
+                    const next = prev.filter((m) => m.id !== id);
+                    const wasActive = prev.find((m) => m.id === id)?.active;
+                    if (wasActive) {
+                      const updated = next.map((m) => m.id === "1" ? { ...m, active: true } : m);
+                      localStorage.setItem("familyMembers", JSON.stringify(updated));
+                      return updated;
+                    }
+                    localStorage.setItem("familyMembers", JSON.stringify(next));
+                    return next;
+                  });
+                  showNotice("Đã xoá thành viên gia đình.");
+                }}
+                onViewHealth={(member) => {
+                  setSelectedFamilyMember(member);
+                  setActiveSheet("family-health");
+                }}
+              />
+            )}
+            {activeSheet === "family-add" && (
+              <FamilyAddSheet
+                onClose={() => setActiveSheet("family")}
+                onSave={(newMember) => {
+                  setFamilyMembers((prev) => {
+                    const nextMember = {
+                      ...newMember,
+                      id: String(Date.now()),
+                      active: false,
+                    };
+                    const next = [...prev, nextMember];
+                    localStorage.setItem("familyMembers", JSON.stringify(next));
+                    return next;
+                  });
+                  setActiveSheet("family");
+                  showNotice("Đã thêm thành viên gia đình thành công.");
+                }}
+              />
+            )}
+            {activeSheet === "family-health" && selectedFamilyMember && (
+              <FamilyHealthSheet
+                member={selectedFamilyMember}
+                onClose={() => setActiveSheet("family")}
+              />
             )}
             {activeSheet === "security" && (
               <SecuritySheet
@@ -1195,35 +1368,111 @@ function QRSheet({ onClose, onCopy }: { onClose: () => void; onCopy: () => void 
 }
 
 // Health record sheet
-function HealthRecordSheet({ onClose, onSave }: { onClose: () => void; onSave: () => void }) {
+function HealthRecordSheet({
+  member,
+  onClose,
+  onSave,
+}: {
+  member: FamilyMember;
+  onClose: () => void;
+  onSave: (updatedHealth: FamilyMember["health"]) => void;
+}) {
+  const [bloodType, setBloodType] = useState(member?.health?.bloodType || "O+");
+  const [height, setHeight] = useState(member?.health?.height?.replace(" cm", "") || "170");
+  const [weight, setWeight] = useState(member?.health?.weight?.replace(" kg", "") || "68");
+  const [allergy, setAllergy] = useState(member?.health?.allergy || "Không");
+  const [disease, setDisease] = useState(member?.health?.disease || "Không");
+  const [medicine, setMedicine] = useState(member?.health?.medicine || "Không");
+
+  const handleSave = () => {
+    const hNum = parseFloat(height);
+    const wNum = parseFloat(weight);
+    let bmiVal = "22.0 (Bình thường)";
+    if (hNum && wNum) {
+      const calculatedBmi = (wNum / Math.pow(hNum / 100, 2)).toFixed(1);
+      let bmiLabel = "Bình thường";
+      const bmiFloat = parseFloat(calculatedBmi);
+      if (bmiFloat < 18.5) bmiLabel = "Thiếu cân";
+      else if (bmiFloat >= 25) bmiLabel = "Thừa cân";
+      bmiVal = `${calculatedBmi} (${bmiLabel})`;
+    }
+
+    onSave({
+      bloodType,
+      height: height ? `${height} cm` : "--",
+      weight: weight ? `${weight} kg` : "--",
+      bmi: bmiVal,
+      allergy,
+      disease,
+      medicine,
+    });
+  };
+
   return (
     <>
-      <SheetHeader label="Hồ sơ sức khỏe" title="Cập nhật chỉ số sức khỏe" onClose={onClose} />
-      <div className="max-h-[60vh] overflow-y-auto px-5 pb-5 pt-3">
+      <SheetHeader label="Hồ sơ sức khỏe" title={`Cập nhật chỉ số sức khỏe của ${member.name}`} onClose={onClose} />
+      <div className="max-h-[60vh] overflow-y-auto px-5 pb-5 pt-3 text-left">
         <div className="space-y-3">
-          {[
-            { label: "Nhóm máu", value: "O+", type: "text" },
-            { label: "Chiều cao (cm)", value: "170", type: "number" },
-            { label: "Cân nặng (kg)", value: "68", type: "number" },
-            { label: "Dị ứng", value: "Penicillin", type: "text" },
-            { label: "Bệnh nền", value: "Tăng huyết áp", type: "text" },
-            { label: "Thuốc đang sử dụng", value: "Amlodipine 5mg, Vitamin tổng hợp", type: "text" },
-          ].map((field) => (
-            <div key={field.label}>
-              <label className="mb-1 block text-[12px] font-semibold text-[#6b7280]">{field.label}</label>
-              <input
-                type={field.type}
-                defaultValue={field.value}
-                className="w-full rounded-2xl border border-[#e2e8f0] bg-[#f8fbf8] px-4 py-2.5 text-[14px] text-[#1f2939] outline-none focus:border-[#16a34a] focus:ring-1 focus:ring-[#16a34a]"
-              />
-            </div>
-          ))}
+          <div>
+            <label className="mb-1 block text-[12px] font-semibold text-[#6b7280]">Nhóm máu</label>
+            <input
+              type="text"
+              value={bloodType}
+              onChange={(e) => setBloodType(e.target.value)}
+              className="w-full rounded-2xl border border-[#e2e8f0] bg-[#f8fbf8] px-4 py-2.5 text-[14px] text-[#1f2939] outline-none focus:border-[#16a34a] focus:ring-1 focus:ring-[#16a34a]"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[12px] font-semibold text-[#6b7280]">Chiều cao (cm)</label>
+            <input
+              type="number"
+              value={height}
+              onChange={(e) => setHeight(e.target.value)}
+              className="w-full rounded-2xl border border-[#e2e8f0] bg-[#f8fbf8] px-4 py-2.5 text-[14px] text-[#1f2939] outline-none focus:border-[#16a34a] focus:ring-1 focus:ring-[#16a34a]"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[12px] font-semibold text-[#6b7280]">Cân nặng (kg)</label>
+            <input
+              type="number"
+              value={weight}
+              onChange={(e) => setWeight(e.target.value)}
+              className="w-full rounded-2xl border border-[#e2e8f0] bg-[#f8fbf8] px-4 py-2.5 text-[14px] text-[#1f2939] outline-none focus:border-[#16a34a] focus:ring-1 focus:ring-[#16a34a]"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[12px] font-semibold text-[#6b7280]">Dị ứng</label>
+            <input
+              type="text"
+              value={allergy}
+              onChange={(e) => setAllergy(e.target.value)}
+              className="w-full rounded-2xl border border-[#e2e8f0] bg-[#f8fbf8] px-4 py-2.5 text-[14px] text-[#1f2939] outline-none focus:border-[#16a34a] focus:ring-1 focus:ring-[#16a34a]"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[12px] font-semibold text-[#6b7280]">Bệnh nền</label>
+            <input
+              type="text"
+              value={disease}
+              onChange={(e) => setDisease(e.target.value)}
+              className="w-full rounded-2xl border border-[#e2e8f0] bg-[#f8fbf8] px-4 py-2.5 text-[14px] text-[#1f2939] outline-none focus:border-[#16a34a] focus:ring-1 focus:ring-[#16a34a]"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[12px] font-semibold text-[#6b7280]">Thuốc đang sử dụng</label>
+            <input
+              type="text"
+              value={medicine}
+              onChange={(e) => setMedicine(e.target.value)}
+              className="w-full rounded-2xl border border-[#e2e8f0] bg-[#f8fbf8] px-4 py-2.5 text-[14px] text-[#1f2939] outline-none focus:border-[#16a34a] focus:ring-1 focus:ring-[#16a34a]"
+            />
+          </div>
         </div>
         <div className="mt-4 flex gap-2">
           <button type="button" onClick={onClose} className="flex-1 rounded-2xl border border-[#d8eadf] py-3 text-[14px] font-medium text-[#6b7280]">
             Huỷ
           </button>
-          <button type="button" onClick={onSave} className="flex-1 rounded-2xl bg-[#16a34a] py-3 text-[14px] font-semibold text-white">
+          <button type="button" onClick={handleSave} className="flex-1 rounded-2xl bg-[#16a34a] py-3 text-[14px] font-semibold text-white">
             Lưu
           </button>
         </div>
@@ -1271,14 +1520,26 @@ function MedicalFilesSheet({ onClose }: { onClose: () => void }) {
 }
 
 // Family sheet
-function FamilySheet({ onClose, onAdd }: { onClose: () => void; onAdd: () => void }) {
+function FamilySheet({
+  familyMembers,
+  onClose,
+  onAddClick,
+  onDeleteMember,
+  onViewHealth,
+}: {
+  familyMembers: FamilyMember[];
+  onClose: () => void;
+  onAddClick: () => void;
+  onDeleteMember: (id: string) => void;
+  onViewHealth: (member: FamilyMember) => void;
+}) {
   return (
     <>
       <SheetHeader label="Gia đình" title="Hồ sơ thành viên gia đình" onClose={onClose} />
       <div className="px-5 pb-5 pt-3">
-        <div className="space-y-2.5 mb-4">
+        <div className="space-y-2.5 mb-4 max-h-[45vh] overflow-y-auto pr-1">
           {familyMembers.map((member) => (
-            <div key={member.name} className="flex items-center gap-3 rounded-2xl border border-[#e2e8f0] bg-[#f8fbf8] px-4 py-3">
+            <div key={member.id} className="flex items-center gap-3 rounded-2xl border border-[#e2e8f0] bg-[#f8fbf8] px-4 py-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#f0fbf4] text-2xl">
                 {member.avatar}
               </div>
@@ -1286,11 +1547,35 @@ function FamilySheet({ onClose, onAdd }: { onClose: () => void; onAdd: () => voi
                 <p className="text-[14px] font-semibold text-[#1f2939]">{member.name}</p>
                 <p className="text-[12px] text-[#6b7280]">{member.role}</p>
               </div>
-              {member.active && (
-                <span className="rounded-full bg-[#dcfce7] px-2.5 py-1 text-[11px] font-semibold text-[#16a34a]">
-                  Chính
-                </span>
-              )}
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => onViewHealth(member)}
+                  className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#f0fbf4] text-[#16a34a] transition hover:bg-[#bbf7d0]"
+                  title="Xem chỉ số sức khỏe"
+                >
+                  <Activity className="h-4.5 w-4.5" />
+                </button>
+                {member.id !== "1" && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (confirm(`Bạn có chắc muốn xóa hồ sơ của ${member.name}?`)) {
+                        onDeleteMember(member.id);
+                      }
+                    }}
+                    className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#fff5f5] text-[#dc2626] transition hover:bg-[#fee2e2]"
+                    title="Xóa thành viên"
+                  >
+                    <Trash2 className="h-4.5 w-4.5" />
+                  </button>
+                )}
+                {member.active && (
+                  <span className="rounded-full bg-[#dcfce7] px-2 py-0.5 text-[10px] font-semibold text-[#16a34a]">
+                    Đang xem
+                  </span>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -1298,10 +1583,266 @@ function FamilySheet({ onClose, onAdd }: { onClose: () => void; onAdd: () => voi
           <button type="button" onClick={onClose} className="flex-1 rounded-2xl border border-[#d8eadf] py-3 text-[14px] font-medium text-[#6b7280]">
             Đóng
           </button>
-          <button type="button" onClick={() => { onAdd(); onClose(); }} className="flex-1 rounded-2xl bg-[#16a34a] py-3 text-[14px] font-semibold text-white">
+          <button type="button" onClick={onAddClick} className="flex-1 rounded-2xl bg-[#16a34a] py-3 text-[14px] font-semibold text-white">
             + Thêm thành viên
           </button>
         </div>
+      </div>
+    </>
+  );
+}
+
+// Family Add Sheet
+function FamilyAddSheet({
+  onClose,
+  onSave,
+}: {
+  onClose: () => void;
+  onSave: (newMember: Omit<FamilyMember, "id" | "active">) => void;
+}) {
+  const [name, setName] = useState("");
+  const [relationship, setRelationship] = useState("Vợ");
+  const [age, setAge] = useState("");
+  const [gender, setGender] = useState("Nữ");
+
+  // Health parameters
+  const [bloodType, setBloodType] = useState("O+");
+  const [height, setHeight] = useState("");
+  const [weight, setWeight] = useState("");
+  const [allergy, setAllergy] = useState("Không");
+  const [disease, setDisease] = useState("Không");
+  const [medicine, setMedicine] = useState("Không");
+
+  const handleSubmit = () => {
+    if (!name || !age) {
+      alert("Vui lòng điền họ tên và tuổi!");
+      return;
+    }
+
+    // Choose avatar based on gender/relationship
+    let avatar = "👨";
+    if (gender === "Nữ") {
+      avatar = relationship.includes("Con") ? "👧" : "👩";
+    } else {
+      avatar = relationship.includes("Con") ? "👦" : "👨";
+    }
+    if (relationship.includes("Bố") || relationship.includes("Ông")) avatar = "👴";
+    if (relationship.includes("Mẹ") || relationship.includes("Bà")) avatar = "👵";
+    if (parseInt(age) <= 3) avatar = "👶";
+
+    const role = `${relationship} · ${age} tuổi`;
+
+    onSave({
+      name,
+      role,
+      avatar,
+      health: {
+        bloodType,
+        height: height ? `${height} cm` : "--",
+        weight: weight ? `${weight} kg` : "--",
+        bmi: height && weight ? (parseFloat(weight) / Math.pow(parseFloat(height)/100, 2)).toFixed(1) + " (Bình thường)" : "--",
+        allergy,
+        disease,
+        medicine,
+      }
+    });
+  };
+
+  return (
+    <>
+      <SheetHeader label="Gia đình" title="Thêm thành viên mới" onClose={onClose} />
+      <div className="max-h-[65vh] overflow-y-auto px-5 pb-5 pt-3 text-left">
+        <div className="space-y-3">
+          <div>
+            <label className="mb-1 block text-[12px] font-semibold text-[#6b7280]">Họ và tên</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="VD: Nguyễn Văn B"
+              className="w-full rounded-2xl border border-[#e2e8f0] bg-[#f8fbf8] px-4 py-2.5 text-[14px] outline-none focus:border-[#16a34a]"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2.5">
+            <div>
+              <label className="mb-1 block text-[12px] font-semibold text-[#6b7280]">Mối quan hệ</label>
+              <select
+                value={relationship}
+                onChange={(e) => setRelationship(e.target.value)}
+                className="w-full rounded-2xl border border-[#e2e8f0] bg-[#f8fbf8] px-4 py-2.5 text-[14px] outline-none focus:border-[#16a34a]"
+              >
+                <option value="Vợ">Vợ</option>
+                <option value="Chồng">Chồng</option>
+                <option value="Con trai">Con trai</option>
+                <option value="Con gái">Con gái</option>
+                <option value="Bố">Bố</option>
+                <option value="Mẹ">Mẹ</option>
+                <option value="Khác">Khác</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-[12px] font-semibold text-[#6b7280]">Tuổi</label>
+              <input
+                type="number"
+                value={age}
+                onChange={(e) => setAge(e.target.value)}
+                placeholder="VD: 5"
+                className="w-full rounded-2xl border border-[#e2e8f0] bg-[#f8fbf8] px-4 py-2.5 text-[14px] outline-none focus:border-[#16a34a]"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-[12px] font-semibold text-[#6b7280]">Giới tính</label>
+            <select
+              value={gender}
+              onChange={(e) => setGender(e.target.value)}
+              className="w-full rounded-2xl border border-[#e2e8f0] bg-[#f8fbf8] px-4 py-2.5 text-[14px] outline-none focus:border-[#16a34a]"
+            >
+              <option value="Nam">Nam</option>
+              <option value="Nữ">Nữ</option>
+            </select>
+          </div>
+
+          <p className="pt-2 text-[13px] font-bold text-[#16a34a] border-t border-[#f0f4f8]">Chỉ số sức khỏe ban đầu</p>
+
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold text-[#6b7280]">Nhóm máu</label>
+              <select
+                value={bloodType}
+                onChange={(e) => setBloodType(e.target.value)}
+                className="w-full rounded-2xl border border-[#e2e8f0] bg-[#f8fbf8] px-3 py-2 text-[13px] outline-none focus:border-[#16a34a]"
+              >
+                <option value="A+">A+</option>
+                <option value="A-">A-</option>
+                <option value="B+">B+</option>
+                <option value="B-">B-</option>
+                <option value="O+">O+</option>
+                <option value="O-">O-</option>
+                <option value="AB+">AB+</option>
+                <option value="AB-">AB-</option>
+              </select>
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold text-[#6b7280]">Chiều cao (cm)</label>
+              <input
+                type="number"
+                value={height}
+                onChange={(e) => setHeight(e.target.value)}
+                placeholder="165"
+                className="w-full rounded-2xl border border-[#e2e8f0] bg-[#f8fbf8] px-3 py-2 text-[13px] outline-none focus:border-[#16a34a]"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold text-[#6b7280]">Cân nặng (kg)</label>
+              <input
+                type="number"
+                value={weight}
+                onChange={(e) => setWeight(e.target.value)}
+                placeholder="55"
+                className="w-full rounded-2xl border border-[#e2e8f0] bg-[#f8fbf8] px-3 py-2 text-[13px] outline-none focus:border-[#16a34a]"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-[12px] font-semibold text-[#6b7280]">Dị ứng</label>
+            <input
+              type="text"
+              value={allergy}
+              onChange={(e) => setAllergy(e.target.value)}
+              placeholder="VD: Không, Hải sản, Penicillin..."
+              className="w-full rounded-2xl border border-[#e2e8f0] bg-[#f8fbf8] px-4 py-2.5 text-[14px] outline-none focus:border-[#16a34a]"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[12px] font-semibold text-[#6b7280]">Bệnh nền</label>
+            <input
+              type="text"
+              value={disease}
+              onChange={(e) => setDisease(e.target.value)}
+              placeholder="VD: Không, Tiểu đường, Hen suyễn..."
+              className="w-full rounded-2xl border border-[#e2e8f0] bg-[#f8fbf8] px-4 py-2.5 text-[14px] outline-none focus:border-[#16a34a]"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[12px] font-semibold text-[#6b7280]">Thuốc đang dùng</label>
+            <input
+              type="text"
+              value={medicine}
+              onChange={(e) => setMedicine(e.target.value)}
+              placeholder="VD: Không, Insulin..."
+              className="w-full rounded-2xl border border-[#e2e8f0] bg-[#f8fbf8] px-4 py-2.5 text-[14px] outline-none focus:border-[#16a34a]"
+            />
+          </div>
+        </div>
+
+        <div className="mt-5 flex gap-2">
+          <button type="button" onClick={onClose} className="flex-1 rounded-2xl border border-[#d8eadf] py-3 text-[14px] font-medium text-[#6b7280] cursor-pointer">
+            Quay lại
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            className="flex-1 rounded-2xl bg-[#16a34a] py-3 text-[14px] font-semibold text-white cursor-pointer hover:bg-emerald-700 transition"
+          >
+            Thêm mới
+          </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+// Family Health Sheet
+function FamilyHealthSheet({
+  member,
+  onClose,
+}: {
+  member: FamilyMember;
+  onClose: () => void;
+}) {
+  return (
+    <>
+      <SheetHeader label="Chỉ số sức khỏe" title={`Sức khỏe: ${member.name}`} onClose={onClose} />
+      <div className="px-5 pb-6 pt-3 text-left">
+        <div className="mb-4 flex items-center gap-3 rounded-2xl border border-emerald-100 bg-[#f0fbf4] p-3.5">
+          <div className="text-3xl">{member.avatar}</div>
+          <div>
+            <p className="text-sm font-semibold text-[#1f2939]">{member.name}</p>
+            <p className="text-[12px] text-[#6b7280]">{member.role}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2.5 max-h-[45vh] overflow-y-auto pr-1">
+          {[
+            { label: "Nhóm máu", value: member.health.bloodType, icon: "🩸", color: "bg-[#fee2e2] text-[#dc2626]" },
+            { label: "Chiều cao", value: member.health.height, icon: "📏", color: "bg-[#dbeafe] text-[#2563eb]" },
+            { label: "Cân nặng", value: member.health.weight, icon: "⚖️", color: "bg-[#fef9c3] text-[#ca8a04]" },
+            { label: "BMI", value: member.health.bmi, icon: "💪", color: "bg-[#dcfce7] text-[#16a34a]" },
+            { label: "Dị ứng", value: member.health.allergy, icon: "⚠️", color: "bg-[#ffedd5] text-[#ea580c]" },
+            { label: "Bệnh nền", value: member.health.disease, icon: "❤️", color: "bg-[#fce7f3] text-[#db2777]" },
+            { label: "Thuốc đang dùng", value: member.health.medicine, icon: "💊", color: "bg-[#ede9fe] text-[#7c3aed]" },
+          ].map((card) => (
+            <div
+              key={card.label}
+              className="rounded-2xl border border-[#e2e8f0] bg-[#f8fbf8] px-3.5 py-3 shadow-xs"
+            >
+              <div className={`mb-1.5 inline-flex h-8 w-8 items-center justify-center rounded-xl text-md ${card.color}`}>
+                {card.icon}
+              </div>
+              <p className="text-[11px] text-[#6b7280]">{card.label}</p>
+              <p className="text-[14px] font-bold text-[#1f2939]">{card.value}</p>
+            </div>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-4.5 w-full rounded-2xl bg-[#16a34a] py-3 text-[14px] font-semibold text-white cursor-pointer hover:bg-emerald-700 transition"
+        >
+          Quay lại
+        </button>
       </div>
     </>
   );
