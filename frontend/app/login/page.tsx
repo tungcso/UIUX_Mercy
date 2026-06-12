@@ -21,7 +21,7 @@ export default function LoginPage() {
     "Bệnh nhân",
     "Bác sĩ",
     "Quản lí phòng khám",
-    // "Chuyên gia", // Tạm thời ẩn, chưa dùng đến
+    "Chuyên gia",
   ];
 
   const showSuccessNotification = (message: string) => {
